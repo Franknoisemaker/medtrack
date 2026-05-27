@@ -19,17 +19,21 @@ export function AuthGateway({ onAuthSuccess }: AuthGatewayProps) {
     setIsLoading(true);
     setErrorMessage(null);
 
+    const emailToSubmit = email.trim();
+    const passwordToSubmit = password; // Capture for execution
+    setPassword(''); // WIPE immediately from React state and DOM to prevent inspect-element exposure during request processing
+
     try {
       if (isRegister) {
-        if (!nombre.trim() || !cedula.trim() || !email.trim() || !password.trim()) {
+        if (!nombre.trim() || !cedula.trim() || !emailToSubmit || !passwordToSubmit) {
           throw new Error('Todos los campos son obligatorios.');
         }
 
         // Register in Supabase Auth, storing nombre and cedula in raw_user_meta_data
         // The Postgres trigger 'on_auth_user_created' handles creating the public.medicos row safely.
         const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
+          email: emailToSubmit,
+          password: passwordToSubmit,
           options: {
             data: {
               nombre: nombre.trim(),
@@ -47,7 +51,7 @@ export function AuthGateway({ onAuthSuccess }: AuthGatewayProps) {
               id: data.user.id,
               nombre: nombre.trim(),
               cedula_cifrada: `[PGP_ENCRYPTED]_${cedula.trim()}`,
-              email: email.trim(),
+              email: emailToSubmit,
             });
           } catch (insertErr) {
             console.warn('Defensive medico profile insert handled:', insertErr);
@@ -62,13 +66,13 @@ export function AuthGateway({ onAuthSuccess }: AuthGatewayProps) {
           setIsRegister(false);
         }
       } else {
-        if (!email.trim() || !password.trim()) {
+        if (!emailToSubmit || !passwordToSubmit) {
           throw new Error('Email y contraseña son obligatorios.');
         }
 
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: emailToSubmit,
+          password: passwordToSubmit,
         });
 
         if (error) throw error;
