@@ -1,0 +1,11 @@
+{
+  "name": "medtrack-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "expediente-medico-app"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=expediente-medico-app"
+  }
+}
