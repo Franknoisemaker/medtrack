@@ -1,0 +1,53 @@
+# MedTrack — Integración Continua
+# Ejecuta en todo PR hacia main y en push a main.
+# Pasos: lint → type-check → test → build-check
+
+name: CI — Lint, Test & Build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    name: CI Pipeline
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expediente-medico-app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: expediente-medico-app/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Type-check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Tests unitarios (Vitest)
+        run: npm test
+        env:
+          # Valores mock seguros — nunca exponer credenciales reales en CI
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key-for-tests
+
+      - name: Build check
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key-for-tests
+          NODE_ENV: production

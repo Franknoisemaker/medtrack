@@ -1,0 +1,67 @@
+/* Color tokens and theme variations for MedTrack */
+
+:root {
+  /* Common typography tokens */
+  --font-sans-outfit: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Common radii and transitions */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+  
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+}
+
+/* Zen Slate Theme (Patient Onboarding - Compassionate Calma) */
+.theme-zen {
+  --color-primary: #1e293b; /* Deep slate Slate-800 */
+  --color-secondary: #0ea5e9; /* Sky-600 */
+  --color-bg: #fafaf9; /* Warm Sand Stone-50 */
+  --color-surface-glass: rgba(255, 255, 255, 0.75);
+  --color-border: #e2e8f0; /* Slate-200 */
+  
+  /* Semantic validation statuses */
+  --color-success: #10b981; /* Emerald-500 */
+  --color-warning: #d97706; /* Compassionate Amber-600 */
+  --color-error: #dc2626; /* Red-600 (Restricted alert) */
+  
+  --font-base: var(--font-sans-outfit);
+  --radius-base: var(--radius-md);
+}
+
+/* Glass Clinical Theme (Futuristic and Clean) */
+.theme-glass {
+  --color-primary: #0f172a; /* Slate-900 */
+  --color-secondary: #06b6d4; /* Cyan-500 */
+  --color-bg: #f8fafc; /* Slate-50 */
+  --color-surface-glass: rgba(255, 255, 255, 0.45);
+  --color-border: rgba(226, 232, 240, 0.5);
+  
+  /* Semantic validation statuses */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  
+  --font-base: var(--font-sans-inter);
+  --radius-base: var(--radius-lg);
+}
+
+/* Tactical Density Theme (Physician Dashboard - Speed and Contrast) */
+.theme-tactical {
+  --color-primary: #0f172a; /* Slate-900 */
+  --color-secondary: #0284c7; /* Sky-700 (High contrast) */
+  --color-bg: #f1f5f9; /* Slate-100 */
+  --color-surface-glass: #ffffff;
+  --color-border: #cbd5e1; /* Slate-300 */
+  
+  /* Semantic validation statuses */
+  --color-success: #059669; /* Emerald-600 */
+  --color-warning: #b45309; /* Amber-700 */
+  --color-error: #b91c1c; /* Red-700 */
+  
+  --font-base: var(--font-sans-inter);
+  --radius-base: var(--radius-sm);
+}

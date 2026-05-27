@@ -1,0 +1,90 @@
+# MedTrack — Deploy a Producción
+# Se ejecuta en push a main (merge de PR aprobado).
+# Requiere aprobación del GitHub Environment "production".
+# Concurrencia: nunca cancela un deploy en vuelo.
+
+name: Deploy — Producción (main)
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    name: Deploy a Producción
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: expediente-medico-app/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+        working-directory: expediente-medico-app
+
+      - name: Tests finales (última verificación pre-deploy)
+        run: npm test
+        working-directory: expediente-medico-app
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key-for-tests
+
+      - name: Build de producción
+        run: npm run build
+        working-directory: expediente-medico-app
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_PROD }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY_PROD }}
+          NODE_ENV: production
+
+      - name: Instalar Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy a producción en Vercel
+        working-directory: expediente-medico-app
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel deploy --prod \
+            --token="${VERCEL_TOKEN}" \
+            --yes
+
+      - name: Marcar commit como desplegado
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'success',
+              description: 'Desplegado a medtrack.mx exitosamente',
+              context: 'deploy/production'
+            });
+
+      - name: Notificar fallo de deploy
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'failure',
+              description: 'Deploy a producción falló — revisar logs',
+              context: 'deploy/production'
+            });
