@@ -3,7 +3,7 @@ import { QrSoftPass } from './QrSoftPass';
 
 interface SoftGateFormProps {
   token: string;
-  onVerified: (sessionToken: string, consultaId: string) => void;
+  onVerified: (sessionToken: string, consultaId: string, patient?: any) => void;
 }
 
 export function SoftGateForm({ token, onVerified }: SoftGateFormProps) {
