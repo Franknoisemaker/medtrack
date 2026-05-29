@@ -16,7 +16,7 @@ describe('EvolutionCharts Component', () => {
     expect(screen.getByText(/📊 Sin datos de consultas anteriores/i)).toBeInTheDocument();
   });
 
-  it('renders "Se necesitan 2 o más visitas" message when history has only 1 point', () => {
+  it('renders single data point successfully when history has only 1 point', () => {
     const singleDataPoint = [
       { fecha: '2026-05-20T10:00:00.000Z', peso: 71, imc: 22.4, pa_sistolica: 122, pa_diastolica: 81 }
     ];
@@ -25,9 +25,10 @@ describe('EvolutionCharts Component', () => {
     // Renders the section title
     expect(screen.getByText(/📈 Evolución Histórica/i)).toBeInTheDocument();
     
-    // Shows the fallback instructional message on all three charts
-    const fallbacks = screen.getAllByText(/Se necesitan 2 o más visitas para mostrar la evolución/i);
-    expect(fallbacks.length).toBe(3);
+    // Renders the badges with captured values in headers
+    expect(screen.getByText('71.0 kg')).toBeInTheDocument();
+    expect(screen.getByText('22.4')).toBeInTheDocument();
+    expect(screen.getByText('122/81 mmHg')).toBeInTheDocument();
   });
 
   it('renders SVG canvas, gridlines and labels when historical data has multiple visits', () => {

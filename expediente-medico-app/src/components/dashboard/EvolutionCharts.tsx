@@ -61,7 +61,7 @@ function SingleChart({ cfg, data }: SingleChartProps) {
 
   const valid = data.filter(d => d[cfg.key] != null);
 
-  if (valid.length < 2) {
+  if (valid.length === 0) {
     return (
       <div style={{
         padding: '1.25rem',
@@ -71,7 +71,7 @@ function SingleChart({ cfg, data }: SingleChartProps) {
       }}>
         <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-primary)', marginBottom: '8px' }}>{cfg.label}</div>
         <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', opacity: 0.45, textAlign: 'center', padding: '1rem 0' }}>
-          📊 Se necesitan 2 o más visitas para mostrar la evolución.
+          📊 Sin datos registrados para esta métrica.
         </div>
       </div>
     );
@@ -104,8 +104,24 @@ function SingleChart({ cfg, data }: SingleChartProps) {
       border: '1px solid var(--color-border)',
       position: 'relative',
     }}>
-      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-primary)', marginBottom: '8px' }}>
-        {cfg.label}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-primary)' }}>
+          {cfg.label}
+        </span>
+        {valid.length === 1 && (
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            background: 'var(--color-border, rgba(0,0,0,0.05))',
+            color: 'var(--color-primary)',
+            padding: '2px 8px',
+            borderRadius: '12px',
+          }}>
+            {cfg.secondaryKey && valid[0][cfg.secondaryKey] != null
+              ? `${Number(valid[0][cfg.key]).toFixed(0)}/${Number(valid[0][cfg.secondaryKey]).toFixed(0)} ${cfg.unit}`
+              : `${Number(valid[0][cfg.key]).toFixed(1)} ${cfg.unit}`}
+          </span>
+        )}
       </div>
 
       <svg
