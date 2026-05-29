@@ -111,10 +111,10 @@ function App() {
   // Fetch doctor decrypted metadata (Cédula Profesional) via secure RPC
   const fetchMedicoProfile = async (userId: string, activeSession: any) => {
     try {
-      // Race the RPC call against a 5.0 second timeout to prevent local dev network hangs
+      // Race the RPC call against an 8.0 second timeout to prevent local dev network hangs
       const rpcPromise = supabase.rpc('get_decrypted_medico', { p_medico_id: userId });
       const timeoutPromise = new Promise<any>((_, reject) =>
-        setTimeout(() => reject(new Error('RPC network timeout')), 5000)
+        setTimeout(() => reject(new Error('RPC network timeout')), 8000)
       );
 
       const res = await Promise.race([rpcPromise, timeoutPromise]);
@@ -179,7 +179,7 @@ function App() {
         .order('fecha_hora', { ascending: true });
 
       const timeoutPromise = new Promise<any>((_, reject) =>
-        setTimeout(() => reject(new Error('Appointments load network timeout')), 2500)
+        setTimeout(() => reject(new Error('Appointments load network timeout')), 10000)
       );
 
       const res = await Promise.race([dbPromise, timeoutPromise]);
