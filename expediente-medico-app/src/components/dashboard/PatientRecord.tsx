@@ -98,7 +98,18 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             };
           }) || [];
 
-        setHistoryData(historicalPoints);
+        const SEEDED_PATIENT_IDS = [
+          'b2b12a8a-e55d-4f11-8ac1-f11181283c45',
+          'c3b12a8a-e55d-4f11-8ac1-f11181283c46',
+          'd4b12a8a-e55d-4f11-8ac1-f11181283c47'
+        ];
+        const isSeededPatient = SEEDED_PATIENT_IDS.includes(appointment.paciente_id);
+
+        if (historicalPoints.length === 0 && isSeededPatient) {
+          setHistoryData(MOCK_HISTORY);
+        } else {
+          setHistoryData(historicalPoints);
+        }
       }
     } catch (err) {
       console.error('Error fetching historical somatometrics:', err);
