@@ -291,10 +291,12 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
       const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
       const firma = Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
 
+      const session = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const activeDoctorId = session?.data?.session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
+
       const { error: insertErr } = await supabase.from('soap_aclaraciones').insert({
         nota_soap_id: notaData.id,
-        // Use the seeded doctor UUID for local dev sandbox
-        medico_id: 'a6b12a8a-e55d-4f11-8ac1-f11181283c44',
+        medico_id: activeDoctorId,
         aclaracion_texto: aclaracionText.trim(),
         firma_electronica: firma,
       });

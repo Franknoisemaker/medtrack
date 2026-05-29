@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../../services/supabase';
 
 export interface ClinicalFile {
   id: string;
@@ -28,11 +29,15 @@ export function ClinicalFilesList({ consultaId, files }: ClinicalFilesListProps)
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
     
     try {
-      const resp = await fetch(`${supabaseUrl}/functions/v1/get-file?archivo_id=${archivoId}&medico_id=a6b12a8a-e55d-4f11-8ac1-f11181283c44&apikey=${supabaseAnonKey}`, {
+      const session = (await supabase.auth.getSession()).data.session;
+      const activeDoctorId = session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
+      const sessionToken = session?.access_token || supabaseAnonKey;
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/get-file?archivo_id=${archivoId}&medico_id=${activeDoctorId}&apikey=${supabaseAnonKey}`, {
         method: 'GET',
         headers: {
           'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Authorization': `Bearer ${sessionToken}`,
         },
       });
 

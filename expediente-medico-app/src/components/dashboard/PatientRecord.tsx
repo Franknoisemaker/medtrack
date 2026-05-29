@@ -415,6 +415,8 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         const sessionToken = session?.access_token || 'mock-doctor-session-token';
         const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+        const activeDoctorId = session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
+
         const resp = await fetch(`${supabaseUrl}/functions/v1/sign-note?apikey=${supabaseAnonKey}`, {
           method: 'POST',
           headers: {
@@ -426,7 +428,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             consulta_id: appointment.id,
             soap_json: soapData,
             somatometria_json: somatometrics.toPayload(),
-            medico_id: 'demo-medico-id',
+            medico_id: activeDoctorId,
             cedula: '12345678',
           }),
         });

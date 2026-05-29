@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { logEvent } from '../../services/telemetry';
+import { supabase } from '../../services/supabase';
 
 interface FileUploadZoneProps {
   consultaId: string;
@@ -86,20 +87,23 @@ export function FileUploadZone({ consultaId, onUploadSuccess }: FileUploadZonePr
       }
 
       // REAL IMPLEMENTATION
+      const session = (await supabase.auth.getSession()).data.session;
+      const activeDoctorId = session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+      const sessionToken = session?.access_token || supabaseAnonKey;
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('titulo', titulo);
       formData.append('categoria', categoria);
       formData.append('consulta_id', consultaId);
-      formData.append('medico_id', 'a6b12a8a-e55d-4f11-8ac1-f11181283c44'); // Doctor UUID matching seeded database
-
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+      formData.append('medico_id', activeDoctorId);
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/scan-virus?apikey=${supabaseAnonKey}`, {
         method: 'POST',
         headers: {
           'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Authorization': `Bearer ${sessionToken}`,
         },
         body: formData,
       });
