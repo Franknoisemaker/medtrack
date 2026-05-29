@@ -5,7 +5,7 @@ const DenoEnv = (globalThis as any).Deno?.env;
 const allowedOrigin = DenoEnv ? DenoEnv.get('ALLOWED_ORIGIN') : null;
 
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': allowedOrigin || 'https://medtrack.mx',
+  'Access-Control-Allow-Origin': allowedOrigin || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 }
