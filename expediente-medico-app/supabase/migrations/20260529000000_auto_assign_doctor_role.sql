@@ -1,5 +1,5 @@
 -- Migration: 20260529000000_auto_assign_doctor_role.sql
--- Description: Automatically assign the 'clinic_doctor' role to new users in auth.users upon registration
+-- Description: Automatically assign the 'clinic_doctor' role inside raw_app_meta_data for new users in auth.users upon registration
 
 CREATE OR REPLACE FUNCTION public.handle_new_medico()
 RETURNS TRIGGER AS $$
@@ -30,9 +30,9 @@ BEGIN
     new.email
   );
 
-  -- Automatically assign 'clinic_doctor' role in auth.users so that RLS rules authorize clinic access
+  -- Automatically assign 'clinic_doctor' role in raw_app_meta_data so that RLS rules authorize clinic access
   UPDATE auth.users
-  SET role = 'clinic_doctor'
+  SET raw_app_meta_data = jsonb_set(COALESCE(raw_app_meta_data, '{}'::jsonb), '{role}', '"clinic_doctor"')
   WHERE id = new.id;
 
   RETURN NEW;

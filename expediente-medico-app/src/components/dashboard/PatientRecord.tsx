@@ -220,6 +220,101 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   const [isLoadingTriage, setIsLoadingTriage] = useState(false);
   const [patientAppointments, setPatientAppointments] = useState<any[]>([]);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+  const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
+  const [loadedSoapNotes, setLoadedSoapNotes] = useState<Record<string, {
+    subjetivo: string;
+    objetivo: string;
+    analisis: string;
+    plan: string;
+    isSigned: boolean;
+    loading: boolean;
+  }>>({});
+
+  const handleToggleAccordion = useCallback(async (consultaId: string) => {
+    if (expandedAppointmentId === consultaId) {
+      setExpandedAppointmentId(null);
+      return;
+    }
+
+    setExpandedAppointmentId(consultaId);
+
+    if (loadedSoapNotes[consultaId]) return; // Ya cargada
+
+    setLoadedSoapNotes(prev => ({
+      ...prev,
+      [consultaId]: { subjetivo: '', objetivo: '', analisis: '', plan: '', isSigned: false, loading: true }
+    }));
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+      const isMock = supabaseUrl.includes('your-project-id');
+
+      if (isMock) {
+        await new Promise(r => setTimeout(r, 400));
+        setLoadedSoapNotes(prev => ({
+          ...prev,
+          [consultaId]: {
+            subjetivo: 'Paciente masculino que acude por control periódico. Refiere sentirse estable sin sintomatología aguda.',
+            objetivo: 'Signos vitales estables. FC: 72 lpm, FR: 16 rpm, Temp: 36.5 °C. Abdomen blando, depresible.',
+            analisis: 'E11.9 - Diabetes mellitus tipo 2 sin complicaciones, bajo control terapéutico.',
+            plan: 'Continuar con tratamiento actual de Metformina. Próxima cita de control en 4 semanas.',
+            isSigned: true,
+            loading: false
+          }
+        }));
+      } else {
+        const { data, error } = await supabase
+          .from('notas_soap')
+          .select('*')
+          .eq('consulta_id', consultaId)
+          .maybeSingle();
+
+        if (data && !error) {
+          const cleanCifrado = (val: string) => {
+            if (!val) return '';
+            return val.startsWith('[PGP_ENCRYPTED]_') ? val.substring(16) : val;
+          };
+
+          setLoadedSoapNotes(prev => ({
+            ...prev,
+            [consultaId]: {
+              subjetivo: cleanCifrado(data.subjetivo_cifrado),
+              objetivo: cleanCifrado(data.objetivo_cifrado),
+              analisis: cleanCifrado(data.analisis_cifrado),
+              plan: cleanCifrado(data.plan_cifrado),
+              isSigned: data.status === 'signed',
+              loading: false
+            }
+          }));
+        } else {
+          setLoadedSoapNotes(prev => ({
+            ...prev,
+            [consultaId]: {
+              subjetivo: 'No se encontraron notas SOAP registradas para esta consulta.',
+              objetivo: '',
+              analisis: '',
+              plan: '',
+              isSigned: false,
+              loading: false
+            }
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching historical SOAP note:', err);
+      setLoadedSoapNotes(prev => ({
+        ...prev,
+        [consultaId]: {
+          subjetivo: 'Error al cargar los datos de la nota SOAP.',
+          objetivo: '',
+          analisis: '',
+          plan: '',
+          isSigned: false,
+          loading: false
+        }
+      }));
+    }
+  }, [expandedAppointmentId, loadedSoapNotes]);
 
   const fetchPatientAppointments = useCallback(async () => {
     if (!appointment.paciente_id) return;
@@ -573,10 +668,17 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                     }
 
                     const isCurrent = appItem.id === appointment.id;
+                    const isHistorical = appItem.status === 'COMPLETED' || appItem.status === 'CANCELLED';
+                    const isExpanded = expandedAppointmentId === appItem.id;
 
                     return (
                       <div
                         key={appItem.id}
+                        onClick={() => {
+                          if (isHistorical) {
+                            handleToggleAccordion(appItem.id);
+                          }
+                        }}
                         style={{
                           display: 'flex',
                           flexDirection: 'column',
@@ -587,7 +689,8 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                           borderRadius: '8px',
                           position: 'relative',
                           transition: 'all 0.2s',
-                          transform: isCurrent ? 'scale(1.01)' : 'scale(1)'
+                          transform: isCurrent ? 'scale(1.01)' : 'scale(1)',
+                          cursor: isHistorical ? 'pointer' : 'default',
                         }}
                       >
                         {isCurrent && (
@@ -613,17 +716,30 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                           <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-primary)' }}>
                             {formattedDate}
                           </span>
-                          <span style={{
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            background: statusBg,
-                            color: statusColor,
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            textTransform: 'uppercase'
-                          }}>
-                            {statusText}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              background: statusBg,
+                              color: statusColor,
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase'
+                            }}>
+                              {statusText}
+                            </span>
+                            {isHistorical && (
+                              <span style={{
+                                fontSize: '0.7rem',
+                                opacity: 0.6,
+                                transition: 'transform 0.2s',
+                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                display: 'inline-block'
+                              }}>
+                                ▼
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {appItem.motivo_consulta_cifrado && (
@@ -632,6 +748,81 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                             {appItem.motivo_consulta_cifrado.startsWith('[PGP_ENCRYPTED]_') 
                               ? appItem.motivo_consulta_cifrado.substring(16)
                               : 'Cifrado en base de datos 🛡️'}
+                          </div>
+                        )}
+
+                        {isHistorical && isExpanded && (
+                          <div 
+                            onClick={(e) => e.stopPropagation()} 
+                            style={{
+                              marginTop: '10px',
+                              borderTop: '1px solid var(--color-border)',
+                              paddingTop: '10px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '10px',
+                            }}
+                          >
+                            {loadedSoapNotes[appItem.id]?.loading ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', fontSize: '0.75rem', color: 'var(--color-primary)', opacity: 0.6 }}>
+                                <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span> Cargando nota SOAP...
+                              </div>
+                            ) : (
+                              <>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-secondary)' }}>
+                                    📝 Nota SOAP
+                                  </span>
+                                  {loadedSoapNotes[appItem.id]?.isSigned ? (
+                                    <span style={{ fontSize: '0.65rem', color: '#10b981', fontWeight: 800, background: 'rgba(16, 185, 129, 0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                                      🔐 Firmada
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800, background: 'rgba(148, 163, 184, 0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                                      📝 Borrador
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.015)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.03)' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.6 }}>
+                                      S — Subjetivo
+                                    </span>
+                                    <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                      {loadedSoapNotes[appItem.id]?.subjetivo || 'Sin registro.'}
+                                    </span>
+                                  </div>
+                                  
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: '1px solid rgba(0,0,0,0.02)', paddingTop: '6px' }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.6 }}>
+                                      O — Objetivo
+                                    </span>
+                                    <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                      {loadedSoapNotes[appItem.id]?.objetivo || 'Sin registro.'}
+                                    </span>
+                                  </div>
+                                  
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: '1px solid rgba(0,0,0,0.02)', paddingTop: '6px' }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.6 }}>
+                                      A — Análisis
+                                    </span>
+                                    <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                      {loadedSoapNotes[appItem.id]?.analisis || 'Sin registro.'}
+                                    </span>
+                                  </div>
+                                  
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: '1px solid rgba(0,0,0,0.02)', paddingTop: '6px' }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.6 }}>
+                                      P — Plan
+                                    </span>
+                                    <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                      {loadedSoapNotes[appItem.id]?.plan || 'Sin registro.'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
