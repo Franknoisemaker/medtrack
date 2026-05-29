@@ -79,7 +79,6 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             )
           `)
           .eq('paciente_id', appointment.paciente_id)
-          .neq('id', appointment.id)
           .eq('status', 'COMPLETED')
           .order('fecha_hora', { ascending: true });
 
@@ -90,7 +89,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           .map((c: any) => {
             const ps = Array.isArray(c.paciente_somatometria) ? c.paciente_somatometria[0] : c.paciente_somatometria;
             return {
-              fecha: c.fecha_hora.split('T')[0],
+              fecha: (c.fecha_hora || '').substring(0, 10),
               peso: Number(ps.peso_kg),
               imc: Number(ps.imc),
               pa_sistolica: Number(ps.presion_sistolica),
@@ -175,9 +174,9 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     loadCurrentSomatometrics();
   }, [appointment.id, appointment.status]);
 
-  // Build live chart data: historical baseline + current visit entry if somatometrics are entered
+  // Build live chart data: historical baseline + current visit entry if somatometrics are entered and consultation is NOT completed
   const livePayload = somatometrics.toPayload();
-  const currentPoint = livePayload.peso_kg || livePayload.pa_sistolica ? {
+  const currentPoint = (appointment.status !== 'COMPLETED' && (livePayload.peso_kg || livePayload.pa_sistolica)) ? {
     fecha: new Date().toISOString().split('T')[0],
     peso: livePayload.peso_kg || null,
     imc: livePayload.imc || null,

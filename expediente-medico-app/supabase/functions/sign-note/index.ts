@@ -113,6 +113,34 @@ serve(async (req: Request) => {
       );
     }
 
+    // Persist somatometria if provided
+    if (somatometria_json) {
+      const { peso_kg, talla_cm, imc, pa_sistolica, pa_diastolica } = somatometria_json;
+      if (peso_kg && talla_cm && pa_sistolica && pa_diastolica) {
+        // Delete any existing somatometria for this consultation to prevent duplicates
+        await supabase
+          .from('paciente_somatometria')
+          .delete()
+          .eq('consulta_id', consulta_id);
+
+        // Insert new somatometria
+        const { error: somaErr } = await supabase
+          .from('paciente_somatometria')
+          .insert({
+            consulta_id,
+            peso_kg,
+            talla_cm: Math.round(talla_cm),
+            presion_sistolica: pa_sistolica,
+            presion_diastolica: pa_diastolica,
+            imc,
+          });
+
+        if (somaErr) {
+          console.error('Error persisting paciente_somatometria:', JSON.stringify(somaErr));
+        }
+      }
+    }
+
     // Update consultation status to COMPLETED
     await supabase
       .from('consultas')
