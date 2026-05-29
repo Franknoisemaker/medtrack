@@ -37,6 +37,7 @@ vi.mock('../../hooks/useAutosaveSoap', () => ({
     status: 'idle',
     lastSaved: null,
   }),
+  loadDraftFromIDB: vi.fn().mockResolvedValue(null),
 }));
 
 describe('PatientRecord Component - Triage Decryption & Auditing', () => {

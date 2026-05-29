@@ -326,7 +326,14 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           id,
           fecha_hora,
           status,
-          motivo_consulta_cifrado
+          motivo_consulta_cifrado,
+          paciente_somatometria (
+            peso_kg,
+            talla_cm,
+            imc,
+            presion_sistolica,
+            presion_diastolica
+          )
         `)
         .eq('paciente_id', appointment.paciente_id)
         .order('fecha_hora', { ascending: false });
@@ -760,9 +767,56 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                               paddingTop: '10px',
                               display: 'flex',
                               flexDirection: 'column',
-                              gap: '10px',
+                              gap: '12px',
                             }}
                           >
+                            {/* Somatometría y Signos Vitales */}
+                            {(() => {
+                              const soma = Array.isArray(appItem.paciente_somatometria) 
+                                ? appItem.paciente_somatometria[0] 
+                                : appItem.paciente_somatometria;
+                              
+                              if (!soma) return null;
+
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-secondary)' }}>
+                                    ⚖️ Somatometría y Signos Vitales
+                                  </span>
+                                  <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(4, 1fr)', 
+                                    gap: '8px', 
+                                    background: 'rgba(59, 130, 246, 0.03)', 
+                                    padding: '8px 10px', 
+                                    borderRadius: '6px', 
+                                    border: '1px solid rgba(59, 130, 246, 0.08)' 
+                                  }}>
+                                    {/* Peso */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>Peso</span>
+                                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.peso_kg ? `${Number(soma.peso_kg).toFixed(1)} kg` : '--'}</span>
+                                    </div>
+                                    {/* Talla */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>Estatura</span>
+                                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.talla_cm ? `${soma.talla_cm} cm` : '--'}</span>
+                                    </div>
+                                    {/* IMC */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>IMC</span>
+                                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.imc ? Number(soma.imc).toFixed(1) : '--'}</span>
+                                    </div>
+                                    {/* Presión */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>Presión</span>
+                                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.presion_sistolica && soma.presion_diastolica ? `${soma.presion_sistolica}/${soma.presion_diastolica}` : '--'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
                             {loadedSoapNotes[appItem.id]?.loading ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', fontSize: '0.75rem', color: 'var(--color-primary)', opacity: 0.6 }}>
                                 <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span> Cargando nota SOAP...
