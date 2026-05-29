@@ -36,6 +36,82 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [timelineTab, setTimelineTab] = useState<'future' | 'history'>('future');
 
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    if (!appointment.paciente_id) {
+      setHistoryData([]);
+      return;
+    }
+
+    setIsLoadingHistory(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+      const isMock = supabaseUrl.includes('your-project-id');
+
+      if (isMock) {
+        // Local dev sandbox mock history configuration
+        const SEEDED_PATIENT_IDS = [
+          'b2b12a8a-e55d-4f11-8ac1-f11181283c45',
+          'c3b12a8a-e55d-4f11-8ac1-f11181283c46',
+          'd4b12a8a-e55d-4f11-8ac1-f11181283c47'
+        ];
+        const isSeededPatient = SEEDED_PATIENT_IDS.includes(appointment.paciente_id);
+
+        if (isSeededPatient) {
+          setHistoryData(MOCK_HISTORY);
+        } else {
+          setHistoryData([]);
+        }
+      } else {
+        // Real-time production database query joining consultas and paciente_somatometria
+        const { data, error } = await supabase
+          .from('consultas')
+          .select(`
+            id,
+            fecha_hora,
+            paciente_somatometria (
+              peso_kg,
+              imc,
+              presion_sistolica,
+              presion_diastolica
+            )
+          `)
+          .eq('paciente_id', appointment.paciente_id)
+          .neq('id', appointment.id)
+          .eq('status', 'COMPLETED')
+          .order('fecha_hora', { ascending: true });
+
+        if (error) throw error;
+
+        const historicalPoints = data
+          ?.filter((c: any) => c.paciente_somatometria && (Array.isArray(c.paciente_somatometria) ? c.paciente_somatometria.length > 0 : c.paciente_somatometria))
+          .map((c: any) => {
+            const ps = Array.isArray(c.paciente_somatometria) ? c.paciente_somatometria[0] : c.paciente_somatometria;
+            return {
+              fecha: c.fecha_hora.split('T')[0],
+              peso: Number(ps.peso_kg),
+              imc: Number(ps.imc),
+              pa_sistolica: Number(ps.presion_sistolica),
+              pa_diastolica: Number(ps.presion_diastolica),
+            };
+          }) || [];
+
+        setHistoryData(historicalPoints);
+      }
+    } catch (err) {
+      console.error('Error fetching historical somatometrics:', err);
+      setHistoryData([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [appointment.paciente_id, appointment.id]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
   // Build live chart data: historical baseline + current visit entry if somatometrics are entered
   const livePayload = somatometrics.toPayload();
   const currentPoint = livePayload.peso_kg || livePayload.pa_sistolica ? {
@@ -45,7 +121,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     pa_sistolica: livePayload.pa_sistolica || null,
     pa_diastolica: livePayload.pa_diastolica || null,
   } : null;
-  const chartData = currentPoint ? [...MOCK_HISTORY, currentPoint] : MOCK_HISTORY;
+  const chartData = currentPoint ? [...historyData, currentPoint] : historyData;
   
   // Real files list state
   const [files, setFiles] = useState<ClinicalFile[]>([]);

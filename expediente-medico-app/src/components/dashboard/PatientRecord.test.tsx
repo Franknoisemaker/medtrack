@@ -8,6 +8,7 @@ vi.mock('../../services/supabase', () => {
   const mockQueryBuilder = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    neq: vi.fn().mockReturnThis(),
     order: vi.fn().mockResolvedValue({ data: [], error: null }),
   };
   return {
