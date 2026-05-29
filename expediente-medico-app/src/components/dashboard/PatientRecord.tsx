@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../services/supabase';
 import { StickyTriage } from './StickyTriage';
 import { SomatometricsForm } from './SomatometricsForm';
@@ -443,6 +443,10 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         cedula: '12345678',
       });
       setIsSigned(true);
+
+      // Refresh historical data and timeline appointments immediately upon signing
+      fetchHistory();
+      fetchPatientAppointments();
     } catch (err) {
       console.error('Error signing note:', err);
       alert('Error al firmar la nota. Intenta nuevamente.');
@@ -458,6 +462,19 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     setIsSigned(status.isSigned);
     setSignedMeta(status.signedMeta);
   }, []);
+
+  const filteredAppointments = useMemo(() => {
+    return patientAppointments
+      .filter(a => {
+        const isFuture = a.status === 'PENDING_ONBOARDING' || a.status === 'ACTIVE';
+        return timelineTab === 'future' ? isFuture : !isFuture;
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.fecha_hora).getTime();
+        const timeB = new Date(b.fecha_hora).getTime();
+        return timelineTab === 'future' ? timeA - timeB : timeB - timeA;
+      });
+  }, [patientAppointments, timelineTab]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -622,10 +639,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {patientAppointments.filter(a => {
-                  const isFuture = a.status === 'PENDING_ONBOARDING' || a.status === 'ACTIVE';
-                  return timelineTab === 'future' ? isFuture : !isFuture;
-                }).length === 0 ? (
+                {filteredAppointments.length === 0 ? (
                   <div style={{
                     padding: '2rem 1.5rem',
                     textAlign: 'center',
@@ -641,10 +655,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                       : 'Este paciente aún no cuenta con historial de consultas concluidas.'}
                   </div>
                 ) : (
-                  patientAppointments.filter(a => {
-                    const isFuture = a.status === 'PENDING_ONBOARDING' || a.status === 'ACTIVE';
-                    return timelineTab === 'future' ? isFuture : !isFuture;
-                  }).map((appItem, idx) => {
+                  filteredAppointments.map((appItem, idx) => {
                     const appDate = new Date(appItem.fecha_hora);
                     const formattedDate = appDate.toLocaleDateString('es-MX', {
                       weekday: 'long',
