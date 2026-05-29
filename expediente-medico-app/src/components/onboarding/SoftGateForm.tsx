@@ -106,11 +106,12 @@ export function SoftGateForm({ token, onVerified }: SoftGateFormProps) {
           }
         }
       } else {
-        const response = await fetch(`${supabaseUrl}/functions/v1/auth-gate`, {
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+        const response = await fetch(`${supabaseUrl}/functions/v1/auth-gate?apikey=${supabaseAnonKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+            'apikey': supabaseAnonKey,
           },
           body: JSON.stringify({ token, fecha_nacimiento: fechaNacimiento, telefono }),
         });

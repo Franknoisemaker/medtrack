@@ -231,12 +231,13 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
           const session = (await supabase.auth.getSession()).data.session;
           const sessionToken = session?.access_token || 'mock-doctor-session-token';
 
-          const response = await fetch(`${supabaseUrl}/functions/v1/create-appointment`, {
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+          const response = await fetch(`${supabaseUrl}/functions/v1/create-appointment?apikey=${supabaseAnonKey}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${sessionToken}`,
-              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+              'apikey': supabaseAnonKey,
             },
             body: JSON.stringify({
               nombre,

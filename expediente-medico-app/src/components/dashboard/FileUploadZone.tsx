@@ -95,7 +95,7 @@ export function FileUploadZone({ consultaId, onUploadSuccess }: FileUploadZonePr
 
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-      const resp = await fetch(`${supabaseUrl}/functions/v1/scan-virus`, {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/scan-virus?apikey=${supabaseAnonKey}`, {
         method: 'POST',
         headers: {
           'apikey': supabaseAnonKey,

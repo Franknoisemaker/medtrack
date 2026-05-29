@@ -28,7 +28,7 @@ export function ClinicalFilesList({ consultaId, files }: ClinicalFilesListProps)
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
     
     try {
-      const resp = await fetch(`${supabaseUrl}/functions/v1/get-file?archivo_id=${archivoId}&medico_id=a6b12a8a-e55d-4f11-8ac1-f11181283c44`, {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/get-file?archivo_id=${archivoId}&medico_id=a6b12a8a-e55d-4f11-8ac1-f11181283c44&apikey=${supabaseAnonKey}`, {
         method: 'GET',
         headers: {
           'apikey': supabaseAnonKey,

@@ -183,11 +183,12 @@ export function OnboardingWizard({ sessionToken, consultaId, patient, onComplete
         // High fidelity mock delay
         await new Promise((resolve) => setTimeout(resolve, 1500));
       } else {
-        const response = await fetch(`${supabaseUrl}/functions/v1/submit-onboarding`, {
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+        const response = await fetch(`${supabaseUrl}/functions/v1/submit-onboarding?apikey=${supabaseAnonKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+            'apikey': supabaseAnonKey,
           },
           body: JSON.stringify(payload),
         });

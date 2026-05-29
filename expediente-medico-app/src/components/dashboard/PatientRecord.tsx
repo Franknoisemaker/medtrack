@@ -175,7 +175,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         const sessionToken = session?.access_token || 'mock-doctor-session-token';
         const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-        const resp = await fetch(`${supabaseUrl}/functions/v1/sign-note`, {
+        const resp = await fetch(`${supabaseUrl}/functions/v1/sign-note?apikey=${supabaseAnonKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

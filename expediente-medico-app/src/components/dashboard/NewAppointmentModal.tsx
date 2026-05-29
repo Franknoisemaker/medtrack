@@ -30,12 +30,13 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
       const sessionToken = session?.access_token || 'mock-doctor-session-token';
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-appointment`, {
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-appointment?apikey=${supabaseAnonKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionToken}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'apikey': supabaseAnonKey,
         },
         body: JSON.stringify({
           nombre: nombre.trim(),
