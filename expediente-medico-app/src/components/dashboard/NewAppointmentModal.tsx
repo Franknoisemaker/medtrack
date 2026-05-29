@@ -35,6 +35,7 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionToken}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
         },
         body: JSON.stringify({
           nombre: nombre.trim(),

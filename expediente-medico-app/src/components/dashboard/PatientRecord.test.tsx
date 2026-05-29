@@ -4,11 +4,29 @@ import { PatientRecord } from './PatientRecord';
 import { supabase } from '../../services/supabase';
 
 // Mock the supabase service
-vi.mock('../../services/supabase', () => ({
-  supabase: {
-    rpc: vi.fn(),
-  },
-}));
+vi.mock('../../services/supabase', () => {
+  const mockQueryBuilder = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockResolvedValue({ data: [], error: null }),
+  };
+  return {
+    supabase: {
+      rpc: vi.fn(),
+      from: vi.fn().mockReturnValue(mockQueryBuilder),
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: {
+            session: {
+              access_token: 'test-token-123'
+            }
+          },
+          error: null
+        })
+      }
+    }
+  };
+});
 
 // Mock useAutosaveSoap hook to prevent external side effects or network calls during testing
 vi.mock('../../hooks/useAutosaveSoap', () => ({

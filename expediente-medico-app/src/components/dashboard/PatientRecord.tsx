@@ -171,9 +171,17 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         // High-fidelity mock signing delay
         await new Promise(r => setTimeout(r, 1500));
       } else {
+        const session = (await supabase.auth.getSession()).data.session;
+        const sessionToken = session?.access_token || 'mock-doctor-session-token';
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
         const resp = await fetch(`${supabaseUrl}/functions/v1/sign-note`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${sessionToken}`,
+          },
           body: JSON.stringify({
             consulta_id: appointment.id,
             soap_json: soapData,

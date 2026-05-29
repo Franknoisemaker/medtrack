@@ -236,6 +236,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${sessionToken}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
             },
             body: JSON.stringify({
               nombre,
