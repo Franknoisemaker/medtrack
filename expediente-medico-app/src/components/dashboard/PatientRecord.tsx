@@ -31,7 +31,7 @@ const MOCK_FILES: ClinicalFile[] = [
 export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   const somatometrics = useSomatometrics();
   const [isSigning, setIsSigning] = useState(false);
-  const [isSigned, setIsSigned] = useState(false);
+  const [isSigned, setIsSigned] = useState(appointment.status === 'COMPLETED');
   const [signedMeta, setSignedMeta] = useState<{ firmadaEn: string; medico: string; cedula: string } | null>(null);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [timelineTab, setTimelineTab] = useState<'future' | 'history'>('future');
@@ -111,6 +111,58 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  // Reset isSigned and signedMeta when the active appointment changes
+  useEffect(() => {
+    setIsSigned(appointment.status === 'COMPLETED');
+    setSignedMeta(null);
+  }, [appointment.id, appointment.status]);
+
+  // Load current consultation somatometrics if they exist in the database
+  useEffect(() => {
+    async function loadCurrentSomatometrics() {
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+        const isMock = supabaseUrl.includes('your-project-id');
+
+        if (isMock) {
+          if (appointment.status === 'COMPLETED') {
+            somatometrics.setValue('pesoKg', '70.0');
+            somatometrics.setValue('tallaCm', '170.0');
+            somatometrics.setValue('paSistolica', '120');
+            somatometrics.setValue('paDiastolica', '80');
+          } else {
+            somatometrics.setValue('pesoKg', '');
+            somatometrics.setValue('tallaCm', '');
+            somatometrics.setValue('paSistolica', '');
+            somatometrics.setValue('paDiastolica', '');
+          }
+        } else {
+          // Clear inputs first
+          somatometrics.setValue('pesoKg', '');
+          somatometrics.setValue('tallaCm', '');
+          somatometrics.setValue('paSistolica', '');
+          somatometrics.setValue('paDiastolica', '');
+
+          const { data, error } = await supabase
+            .from('paciente_somatometria')
+            .select('*')
+            .eq('consulta_id', appointment.id)
+            .maybeSingle();
+
+          if (data && !error) {
+            if (data.peso_kg) somatometrics.setValue('pesoKg', String(data.peso_kg));
+            if (data.talla_cm) somatometrics.setValue('tallaCm', String(data.talla_cm));
+            if (data.presion_sistolica) somatometrics.setValue('paSistolica', String(data.presion_sistolica));
+            if (data.presion_diastolica) somatometrics.setValue('paDiastolica', String(data.presion_diastolica));
+          }
+        }
+      } catch (err) {
+        console.error('Error loading current somatometrics:', err);
+      }
+    }
+    loadCurrentSomatometrics();
+  }, [appointment.id, appointment.status]);
 
   // Build live chart data: historical baseline + current visit entry if somatometrics are entered
   const livePayload = somatometrics.toPayload();
@@ -360,14 +412,17 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
           {/* Somatometrics */}
           <div className="card-glass" style={{ padding: '1.5rem' }}>
-            <SomatometricsForm externalHook={somatometrics} />
+            <SomatometricsForm 
+              externalHook={somatometrics} 
+              readOnly={appointment.status === 'COMPLETED' || isSigned} 
+            />
           </div>
 
           {/* SOAP Editor */}
           <div className="card-glass" style={{ padding: '1.5rem' }}>
             <SoapEditor
               consultaId={appointment.id}
-              readOnly={isSigned}
+              readOnly={appointment.status === 'COMPLETED' || isSigned}
               signedData={signedMeta}
               onRequestSign={handleSign}
               isSigning={isSigning}

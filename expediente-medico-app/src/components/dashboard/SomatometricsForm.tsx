@@ -4,9 +4,10 @@ import { IMC_CATEGORIES, imcToSliderPct } from '../../utils/imc-engine';
 interface SomatometricsFormProps {
   onDataReady?: (payload: ReturnType<ReturnType<typeof useSomatometrics>['toPayload']>) => void;
   externalHook?: ReturnType<typeof useSomatometrics>;
+  readOnly?: boolean;
 }
 
-export function SomatometricsForm({ externalHook }: SomatometricsFormProps) {
+export function SomatometricsForm({ externalHook, readOnly = false }: SomatometricsFormProps) {
   const internal = useSomatometrics();
   const { values, setValue, computed } = externalHook ?? internal;
 
@@ -42,8 +43,13 @@ export function SomatometricsForm({ externalHook }: SomatometricsFormProps) {
             step="0.1"
             value={values.pesoKg}
             onChange={e => setValue('pesoKg', e.target.value)}
+            disabled={readOnly}
             placeholder="ej. 72.5"
-            style={inputStyle}
+            style={{
+              ...inputStyle,
+              background: readOnly ? 'rgba(0,0,0,0.04)' : 'var(--color-surface-glass)',
+              cursor: readOnly ? 'not-allowed' : 'text'
+            }}
           />
         </div>
 
@@ -56,8 +62,13 @@ export function SomatometricsForm({ externalHook }: SomatometricsFormProps) {
             step="0.5"
             value={values.tallaCm}
             onChange={e => setValue('tallaCm', e.target.value)}
+            disabled={readOnly}
             placeholder="ej. 170"
-            style={inputStyle}
+            style={{
+              ...inputStyle,
+              background: readOnly ? 'rgba(0,0,0,0.04)' : 'var(--color-surface-glass)',
+              cursor: readOnly ? 'not-allowed' : 'text'
+            }}
           />
         </div>
       </div>
@@ -146,8 +157,13 @@ export function SomatometricsForm({ externalHook }: SomatometricsFormProps) {
             max="250"
             value={values.paSistolica}
             onChange={e => setValue('paSistolica', e.target.value)}
+            disabled={readOnly}
             placeholder="Sistólica"
-            style={{ ...inputStyle }}
+            style={{
+              ...inputStyle,
+              background: readOnly ? 'rgba(0,0,0,0.04)' : 'var(--color-surface-glass)',
+              cursor: readOnly ? 'not-allowed' : 'text'
+            }}
           />
           <span style={{ fontWeight: 700, color: 'var(--color-primary)', opacity: 0.4, flexShrink: 0 }}>/</span>
           <input
@@ -156,8 +172,13 @@ export function SomatometricsForm({ externalHook }: SomatometricsFormProps) {
             max="150"
             value={values.paDiastolica}
             onChange={e => setValue('paDiastolica', e.target.value)}
+            disabled={readOnly}
             placeholder="Diastólica"
-            style={{ ...inputStyle }}
+            style={{
+              ...inputStyle,
+              background: readOnly ? 'rgba(0,0,0,0.04)' : 'var(--color-surface-glass)',
+              cursor: readOnly ? 'not-allowed' : 'text'
+            }}
           />
           <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', opacity: 0.5, flexShrink: 0 }}>mmHg</span>
         </div>

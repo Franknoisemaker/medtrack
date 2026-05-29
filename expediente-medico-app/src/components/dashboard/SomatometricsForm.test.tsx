@@ -66,4 +66,18 @@ describe('SomatometricsForm Component', () => {
       expect(input.style.fontSize).toBe('16px');
     });
   });
+
+  it('disables input elements when readOnly prop is true', () => {
+    render(<SomatometricsForm readOnly={true} />);
+
+    const pesoInput = screen.getByPlaceholderText('ej. 72.5') as HTMLInputElement;
+    const tallaInput = screen.getByPlaceholderText('ej. 170') as HTMLInputElement;
+    const sistolicaInput = screen.getByPlaceholderText('Sistólica') as HTMLInputElement;
+    const diastolicaInput = screen.getByPlaceholderText('Diastólica') as HTMLInputElement;
+
+    expect(pesoInput).toBeDisabled();
+    expect(tallaInput).toBeDisabled();
+    expect(sistolicaInput).toBeDisabled();
+    expect(diastolicaInput).toBeDisabled();
+  });
 });

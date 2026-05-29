@@ -271,6 +271,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
             email: email || undefined,
             fecha_hora: currentFecha,
             status: responseData.data.status || (omitirOnboarding ? 'ACTIVE' : 'PENDING_ONBOARDING'),
+            paciente_id: selectedPacienteId || undefined,
           });
         } else {
           throw new Error(responseData.error || 'Request failed');

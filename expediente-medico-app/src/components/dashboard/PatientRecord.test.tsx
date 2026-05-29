@@ -10,6 +10,8 @@ vi.mock('../../services/supabase', () => {
     eq: vi.fn().mockReturnThis(),
     neq: vi.fn().mockReturnThis(),
     order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
   return {
     supabase: {

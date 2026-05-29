@@ -6,9 +6,13 @@ import { supabase } from '../../services/supabase';
 // Mock the supabase client completely
 vi.mock('../../services/supabase', () => {
   const mockInsert = vi.fn().mockResolvedValue({ data: null, error: null });
-  const mockFrom = vi.fn().mockReturnValue({
+  const mockQueryBuilder = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
     insert: mockInsert,
-  });
+  };
   return {
     supabase: {
       auth: {
@@ -21,7 +25,7 @@ vi.mock('../../services/supabase', () => {
           error: null
         }),
       },
-      from: mockFrom,
+      from: vi.fn().mockReturnValue(mockQueryBuilder),
       rpc: vi.fn().mockResolvedValue({ data: 'draft-uuid-789', error: null }),
     }
   };

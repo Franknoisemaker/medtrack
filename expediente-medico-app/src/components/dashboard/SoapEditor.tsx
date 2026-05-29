@@ -317,7 +317,12 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
     }
   };
 
-  if (readOnly && signedData) {
+  if (readOnly) {
+    const displayMeta = signedData || {
+      firmadaEn: 'Consulta Concluida',
+      medico: 'Expediente Médico Protegido',
+      cedula: 'NOM-004-SSA3'
+    };
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         <div style={{
@@ -332,7 +337,7 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
           alignItems: 'center',
           gap: '8px',
         }}>
-          ✓ Firmada el {signedData.firmadaEn} · Dr. {signedData.medico} · Cédula {signedData.cedula}
+          ✓ {displayMeta.firmadaEn === 'Consulta Concluida' ? 'Consulta Concluida' : `Firmada el ${displayMeta.firmadaEn}`} · Dr. {displayMeta.medico} · Cédula {displayMeta.cedula}
         </div>
         {FIELD_META.map(({ key, label, icon }) => (
           <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
