@@ -128,11 +128,12 @@ function App() {
       } else {
         // Fallback dynamically from session metadata in case of db resets with persistent Auth sessions
         const userMetaName = activeSession?.user?.user_metadata?.nombre;
+        const userMetaCedula = activeSession?.user?.user_metadata?.cedula;
         const userMetaEmail = activeSession?.user?.email;
         setMedico({
           id: userId,
-          nombre: userMetaName || 'Dr. MedTrack Local',
-          cedula: '12345678',
+          nombre: userMetaName || 'Dr. Médico',
+          cedula: userMetaCedula || 'PENDIENTE',
           email: userMetaEmail || '',
         });
       }
@@ -140,11 +141,12 @@ function App() {
       console.warn('Sandbox Diagnóstico: RPC get_decrypted_medico superó el tiempo de respuesta local o devolvió error. Iniciando perfil de contingencia Nom-024...', err);
       // Fail-safe default
       const userMetaName = activeSession?.user?.user_metadata?.nombre;
+      const userMetaCedula = activeSession?.user?.user_metadata?.cedula;
       const userMetaEmail = activeSession?.user?.email;
       setMedico({
         id: userId,
-        nombre: userMetaName || 'Dr. MedTrack Local',
-        cedula: '12345678',
+        nombre: userMetaName || 'Dr. Médico',
+        cedula: userMetaCedula || 'PENDIENTE',
         email: userMetaEmail || '',
       });
     }

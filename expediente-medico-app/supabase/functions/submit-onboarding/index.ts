@@ -11,7 +11,6 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const encryptionKey = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_DATABASE_SECRET') || 'medtrack_clinical_secret_key_2026_nom024';
 
     if (!supabaseUrl || !supabaseKey) {
       return new Response(

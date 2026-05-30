@@ -12,6 +12,7 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
   const [hora, setHora] = useState('10:00');
+  const [omitirOnboarding, setOmitirOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -27,8 +28,14 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
 
     try {
       const session = (await supabase.auth.getSession()).data.session;
-      const sessionToken = session?.access_token || 'mock-doctor-session-token';
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
+      const isMock = supabaseUrl.includes('your-project-id');
+
+      if (!session && !isMock) {
+        throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+      }
+
+      const sessionToken = session?.access_token || (isMock ? 'mock-doctor-session-token' : '');
 
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
       const response = await fetch(`${supabaseUrl}/functions/v1/create-appointment?apikey=${supabaseAnonKey}`, {
@@ -43,6 +50,7 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
           telefono: telefono.trim(),
           email: email.trim() || null,
           fecha_hora: new Date(`${selectedDate}T${hora}:00`).toISOString(),
+          omitir_onboarding: omitirOnboarding,
         }),
       });
 
@@ -206,6 +214,73 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
                 outline: 'none',
               }}
             />
+          </div>
+
+          {/* Toggle para Omitir Onboarding */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 12px',
+            borderRadius: '8px',
+            background: omitirOnboarding ? 'rgba(14, 165, 233, 0.08)' : 'rgba(71, 85, 105, 0.08)',
+            border: `1px solid ${omitirOnboarding ? 'rgba(14, 165, 233, 0.25)' : 'rgba(71, 85, 105, 0.15)'}`,
+            marginTop: '0.25rem',
+            transition: 'all 0.3s ease',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left', maxWidth: '80%' }}>
+              <span style={{ 
+                fontSize: '0.8rem', 
+                fontWeight: 700, 
+                color: omitirOnboarding ? '#0ea5e9' : 'var(--color-primary)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '4px' 
+              }}>
+                📋 Consulta Directa
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--color-primary)', opacity: 0.65, lineHeight: 1.3 }}>
+                No enviar registro móvil. La cita se creará activa para consulta inmediata.
+              </span>
+            </div>
+            <label className="switch" style={{
+              position: 'relative',
+              display: 'inline-block',
+              width: '44px',
+              height: '24px',
+              cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={omitirOnboarding}
+                onChange={(e) => setOmitirOnboarding(e.target.checked)}
+                disabled={isLoading}
+                style={{ opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: omitirOnboarding ? '#0ea5e9' : '#475569',
+                transition: '0.3s',
+                borderRadius: '24px'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  content: '""',
+                  height: '18px',
+                  width: '18px',
+                  left: '3px',
+                  bottom: '3px',
+                  backgroundColor: 'white',
+                  transition: '0.3s',
+                  borderRadius: '50%',
+                  transform: omitirOnboarding ? 'translateX(20px)' : 'translateX(0)'
+                }} />
+              </span>
+            </label>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>

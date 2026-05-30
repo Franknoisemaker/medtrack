@@ -46,8 +46,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const patientSecret = Deno.env.get('JWT_PATIENT_SECRET') || 'fallback-secret-key-at-least-32-chars-long';
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const isLocalDev = !supabaseUrl.startsWith('https://') || 
+                       supabaseUrl.includes('localhost') || 
+                       supabaseUrl.includes('127.0.0.1');
+
+    let patientSecret = Deno.env.get('JWT_PATIENT_SECRET');
+    if (!patientSecret) {
+      if (isLocalDev) {
+        patientSecret = 'fallback-secret-key-at-least-32-chars-long';
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, error: { code: 'SERVER_CONFIG_ERROR', message: 'System configuration error: patient secure signing key is missing.' } }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

@@ -9,6 +9,9 @@ vi.mock('../../services/supabase', () => {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     neq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    or: vi.fn().mockReturnThis(),
+    ilike: vi.fn().mockReturnThis(),
     order: vi.fn().mockResolvedValue({ data: [], error: null }),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -21,7 +24,14 @@ vi.mock('../../services/supabase', () => {
         getSession: vi.fn().mockResolvedValue({
           data: {
             session: {
-              access_token: 'test-token-123'
+              access_token: 'test-token-123',
+              user: {
+                id: 'test-doctor-uuid-123456',
+                user_metadata: {
+                  nombre: 'Ana García Torres',
+                  cedula: '12345678'
+                }
+              }
             }
           },
           error: null

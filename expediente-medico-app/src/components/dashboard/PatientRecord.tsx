@@ -192,10 +192,46 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   const fetchFiles = async () => {
     setIsLoadingFiles(true);
     try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+      const isMock = supabaseUrl.includes('your-project-id') || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (isMock) {
+        // High-fidelity sandbox mock files list for Elena
+        const MOCK_FILES = [
+          { id: 'uuid-1', titulo: 'Radiografía de Tórax AP', categoria: 'Radiografía', scan_status: 'CLEAN' as const, uploaded_at: '2026-05-24T10:00:00Z' },
+          { id: 'uuid-2', titulo: 'Química Sanguínea 6 Elementos', categoria: 'Laboratorio', scan_status: 'CLEAN' as const, uploaded_at: '2026-05-20T08:30:00Z' },
+        ];
+        setFiles(MOCK_FILES);
+        return;
+      }
+
+      // REAL DATABASE QUERY: Strictly query by unique patient ID
+      // This guarantees absolute clinical patient safety and prevents any homonym or shared-phone mixing.
+      if (!appointment.paciente_id) {
+        setFiles([]);
+        return;
+      }
+
+      // 1. Get all consultation IDs for this specific patient
+      const { data: consultations, error: consultsError } = await supabase
+        .from('consultas')
+        .select('id')
+        .eq('paciente_id', appointment.paciente_id);
+
+      if (consultsError) throw consultsError;
+
+      const consultationIds = (consultations || []).map(c => c.id);
+
+      if (consultationIds.length === 0) {
+        setFiles([]);
+        return;
+      }
+
+      // 2. Query clinical files for these consultations
       const { data, error } = await supabase
         .from('archivos_clinicos')
         .select('id, titulo, categoria, scan_status, uploaded_at')
-        .eq('consulta_id', appointment.id)
+        .in('consulta_id', consultationIds)
         .order('uploaded_at', { ascending: false });
 
       if (error) throw error;
@@ -209,7 +245,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
 
   useEffect(() => {
     fetchFiles();
-  }, [appointment.id]);
+  }, [appointment.paciente_id]);
 
   const [triage, setTriage] = useState<{
     alergias?: string | null;
@@ -407,15 +443,26 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
       const isMock = supabaseUrl.includes('your-project-id');
 
+      let doctorName = 'Dr. Médico';
+      let doctorCedula = 'PENDIENTE';
+      let activeDoctorId = '';
+      let sessionToken = '';
+
       if (isMock) {
         // High-fidelity mock signing delay
         await new Promise(r => setTimeout(r, 1500));
+        doctorName = 'Ana García Torres';
+        doctorCedula = '12345678';
       } else {
         const session = (await supabase.auth.getSession()).data.session;
-        const sessionToken = session?.access_token || 'mock-doctor-session-token';
+        if (!session) {
+          throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+        }
+        sessionToken = session.access_token;
         const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-        const activeDoctorId = session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
+        activeDoctorId = session.user.id;
+        doctorName = session.user.user_metadata?.nombre || 'Dr. Médico';
+        doctorCedula = session.user.user_metadata?.cedula || 'PENDIENTE';
 
         const resp = await fetch(`${supabaseUrl}/functions/v1/sign-note?apikey=${supabaseAnonKey}`, {
           method: 'POST',
@@ -429,7 +476,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             soap_json: soapData,
             somatometria_json: somatometrics.toPayload(),
             medico_id: activeDoctorId,
-            cedula: '12345678',
+            cedula: doctorCedula,
           }),
         });
         const res = await resp.json();
@@ -441,8 +488,8 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
 
       setSignedMeta({
         firmadaEn: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        medico: 'Ana García Torres',
-        cedula: '12345678',
+        medico: doctorName,
+        cedula: doctorCedula,
       });
       setIsSigned(true);
 

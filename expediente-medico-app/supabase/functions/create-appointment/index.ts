@@ -121,32 +121,46 @@ Deno.serve(async (req) => {
     }
 
     if (!pacienteId) {
-      // Create a new patient record (default behavior)
-      // We insert a placeholder birthdate ('1970-01-01') which the patient will fill out during onboarding
-      const { data: newPatient, error: patientError } = await supabase
+      // Safe check: Check if patient already exists with BOTH the same name and phone number
+      // This ensures distinct patients sharing a telephone number (e.g., family members) are NOT merged,
+      // and homonyms with different telephone numbers are also NOT merged.
+      const { data: existingMatch } = await supabase
         .from('pacientes')
-        .insert({
-          nombre: nombre,
-          telefono: telefono,
-          email: email || null,
-          fecha_nacimiento: '1970-01-01',
-        })
         .select('id')
-        .single();
+        .eq('telefono', telefono)
+        .ilike('nombre', nombre.trim())
+        .maybeSingle();
 
-      if (patientError || !newPatient) {
-        console.error('Failed to create patient record:', patientError);
-        return new Response(
-          JSON.stringify({ success: false, error: 'Internal Server Error: Failed to create patient record' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (existingMatch) {
+        pacienteId = existingMatch.id;
+      } else {
+        // Create a new patient record (default behavior)
+        // We insert a placeholder birthdate ('1970-01-01') which the patient will fill out during onboarding
+        const { data: newPatient, error: patientError } = await supabase
+          .from('pacientes')
+          .insert({
+            nombre: nombre,
+            telefono: telefono,
+            email: email || null,
+            fecha_nacimiento: '1970-01-01',
+          })
+          .select('id')
+          .single();
+
+        if (patientError || !newPatient) {
+          console.error('Failed to create patient record:', patientError);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Internal Server Error: Failed to create patient record' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        pacienteId = newPatient.id;
       }
-
-      pacienteId = newPatient.id;
     }
 
     // 6. Create the Consultation record (determine status based on onboarding omission)
-    const consultaStatus = (paciente_id && omitir_onboarding) ? 'ACTIVE' : 'PENDING_ONBOARDING';
+    const consultaStatus = (pacienteId && omitir_onboarding) ? 'ACTIVE' : 'PENDING_ONBOARDING';
 
     const { data: newConsultation, error: consultationError } = await supabase
       .from('consultas')
@@ -172,7 +186,17 @@ Deno.serve(async (req) => {
     // 7. Generate a Single-Use Patient JWT (only if onboarding is not bypassed)
     let patientToken = '';
     if (consultaStatus !== 'ACTIVE') {
-      const patientSecret = Deno.env.get('JWT_PATIENT_SECRET') || 'fallback-secret-key-at-least-32-chars-long';
+      let patientSecret = Deno.env.get('JWT_PATIENT_SECRET');
+      if (!patientSecret) {
+        if (isLocalDev) {
+          patientSecret = 'fallback-secret-key-at-least-32-chars-long';
+        } else {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Internal Server Error: Secure patient signing key configuration is missing on server.' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
       patientToken = await generatePatientToken(consultaId, patientSecret);
     }
 

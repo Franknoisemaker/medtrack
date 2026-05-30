@@ -229,7 +229,13 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
           };
         } else {
           const session = (await supabase.auth.getSession()).data.session;
-          const sessionToken = session?.access_token || 'mock-doctor-session-token';
+          const isMock = supabaseUrl.includes('your-project-id');
+
+          if (!session && !isMock) {
+            throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+          }
+
+          const sessionToken = session?.access_token || (isMock ? 'mock-doctor-session-token' : '');
 
           const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
           const response = await fetch(`${supabaseUrl}/functions/v1/create-appointment?apikey=${supabaseAnonKey}`, {
@@ -667,67 +673,84 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
           )}
         </div>
 
-        {/* Toggle para Cita de Seguimiento (Solo Pacientes Existentes) */}
-        {selectedPacienteId && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 14px',
-            borderRadius: '8px',
-            background: 'rgba(16, 185, 129, 0.08)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            marginTop: '0.25rem',
-            marginBottom: '0.5rem',
-            animation: 'fadeIn 0.3s ease-out'
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                🔄 Cita de Seguimiento Activa
-              </span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)', opacity: 0.65, lineHeight: 1.3 }}>
-                Se omitirá el formulario de onboarding móvil. La cita se creará lista para consulta inmediata.
-              </span>
-            </div>
-            <label className="switch" style={{
-              position: 'relative',
-              display: 'inline-block',
-              width: '44px',
-              height: '24px',
-              cursor: 'pointer'
+        {/* Toggle para Omitir Onboarding (Disponible para Nuevos y Existentes) */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          borderRadius: '8px',
+          background: omitirOnboarding
+            ? (selectedPacienteId ? 'rgba(16, 185, 129, 0.08)' : 'rgba(14, 165, 233, 0.08)')
+            : 'rgba(71, 85, 105, 0.08)',
+          border: `1px solid ${
+            omitirOnboarding
+              ? (selectedPacienteId ? 'rgba(16, 185, 129, 0.25)' : 'rgba(14, 165, 233, 0.25)')
+              : 'rgba(71, 85, 105, 0.15)'
+          }`,
+          marginTop: '0.25rem',
+          marginBottom: '0.75rem',
+          transition: 'all 0.3s ease',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left', maxWidth: '80%' }}>
+            <span style={{ 
+              fontSize: '0.85rem', 
+              fontWeight: 700, 
+              color: omitirOnboarding
+                ? (selectedPacienteId ? '#10b981' : '#0ea5e9')
+                : 'var(--color-primary)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px' 
             }}>
-              <input
-                type="checkbox"
-                checked={omitirOnboarding}
-                onChange={(e) => setOmitirOnboarding(e.target.checked)}
-                style={{ opacity: 0, width: 0, height: 0 }}
-              />
+              {selectedPacienteId ? '🔄 Cita de Seguimiento' : '📋 Consulta Directa'}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)', opacity: 0.65, lineHeight: 1.3 }}>
+              {selectedPacienteId 
+                ? 'Se omitirá el formulario de onboarding móvil. La cita se creará lista para consulta inmediata.'
+                : 'No se enviará link de registro al celular. La cita se creará activa y capturarás la ficha clínica en consultorio.'}
+            </span>
+          </div>
+          <label className="switch" style={{
+            position: 'relative',
+            display: 'inline-block',
+            width: '44px',
+            height: '24px',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={omitirOnboarding}
+              onChange={(e) => setOmitirOnboarding(e.target.checked)}
+              style={{ opacity: 0, width: 0, height: 0 }}
+            />
+            <span style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: omitirOnboarding 
+                ? (selectedPacienteId ? '#10b981' : '#0ea5e9')
+                : '#475569',
+              transition: '0.3s',
+              borderRadius: '24px'
+            }}>
               <span style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: omitirOnboarding ? '#10b981' : '#475569',
+                content: '""',
+                height: '18px',
+                width: '18px',
+                left: '3px',
+                bottom: '3px',
+                backgroundColor: 'white',
                 transition: '0.3s',
-                borderRadius: '24px'
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  content: '""',
-                  height: '18px',
-                  width: '18px',
-                  left: '3px',
-                  bottom: '3px',
-                  backgroundColor: 'white',
-                  transition: '0.3s',
-                  borderRadius: '50%',
-                  transform: omitirOnboarding ? 'translateX(20px)' : 'translateX(0)'
-                }} />
-              </span>
-            </label>
-          </div>
-        )}
+                borderRadius: '50%',
+                transform: omitirOnboarding ? 'translateX(20px)' : 'translateX(0)'
+              }} />
+            </span>
+          </label>
+        </div>
 
         {/* Telefono */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>

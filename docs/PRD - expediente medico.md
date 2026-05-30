@@ -2,8 +2,8 @@
 title: "Product Requirements Document (PRD) - MedTrack"
 status: "final"
 created: "2026-05-20"
-updated: "2026-05-26"
-version: "1.2"
+updated: "2026-05-29"
+version: "1.3"
 ---
 
 # **Product Requirements Document (PRD)**
@@ -40,6 +40,9 @@ Desarrollar una plataforma integral de gestión de expedientes clínicos que eli
   * **Payload:** ID de la Cita y Fecha/Hora de expiración (TTL de 24 horas previo a la cita).
   * **Estructura de la URL:** `https://medtrack.mx/onboarding?token=JWT_STRING`
 * **[FR-1.3] Distribución del Enlace:** El sistema expondrá una acción rápida en la interfaz para copiar la URL generada al portapapeles, permitiendo al médico o asistente enviarla manualmente a través de canales directos (WhatsApp personal, SMS o correo).
+* **[FR-1.4] Buscador de Pacientes y Autocompletado:** El formulario de agendamiento de citas contará con un buscador predictivo que consultará la tabla `pacientes` en tiempo real (o un conjunto de datos simulados en local) al escribir más de dos caracteres. Si el paciente ya está registrado, el médico o asistente podrá seleccionarlo de la lista, autocompletando automáticamente los campos de nombre, teléfono y correo, y asociando la cita directamente a su ID de paciente existente.
+* **[FR-1.5] Esquema de Consultas de Control o Seguimiento (Bypass de Onboarding):** Si el paciente seleccionado en el buscador es un paciente recurrente con expediente clínico pre-existente, la interfaz activará dinámicamente un control ("Cita de Seguimiento Activa"). Al habilitarse, se omitirá por completo el proceso de onboarding por enlace móvil y el soft-gate de autenticación. La cita se registrará directamente en estado `ACTIVE`, quedando lista en el dashboard del médico para iniciar la consulta SOAP de control de forma inmediata.
+* **[FR-1.6] Agendamiento de Citas Recurrentes:** El formulario de agendamiento permitirá programar múltiples consultas en bloque bajo un esquema recurrente. El usuario especificará la frecuencia (días, semanas o meses), el intervalo y el total de ocurrencias (de 2 a 12 citas). El sistema creará la secuencia de citas en una sola transacción asíncrona, mostrando una bitácora detallada con accesos rápidos calendarizados en la pantalla de éxito.
 
 ### **Épica 2: Portal de Onboarding del Paciente (Pre-Consulta)**
 
@@ -60,6 +63,10 @@ Desarrollar una plataforma integral de gestión de expedientes clínicos que eli
     * **Motivo de Consulta:** Área de texto libre (mínimo 10 caracteres - obligatorio).
 * **[FR-2.4] Envío Seguro:** Al enviar el formulario, los datos se guardarán cifrados en el backend, el estado de la cita cambiará a `COMPLETED_ONBOARDING` en la base de datos y se renderizará una pantalla estática de éxito, inhabilitando los botones de retroceso del navegador.
 * **[FR-2.5] Mecanismo QR Soft-Pass para Recepción (Onboarding Asistido):** Si el paciente agota sus 3 intentos de validación segura del Soft-Gate en su dispositivo móvil o experimenta algún inconveniente de acceso, el frontend presentará una opción para generar un "Pase QR" de recepción de corta duración (TTL de 10 minutos). Este QR contendrá un token opaco y cifrado sin información de salud protegida (PHI). Al presentarse en recepción, la asistente podrá escanear el QR con la cámara de su navegador para verificar la cita física, marcando la cita como asistida y habilitando el cuestionario de onboarding en la tableta o terminal del consultorio de manera segura (Write-Only y sin re-exposición de datos previos).
+* **[FR-2.6] Consentimiento de Comunicaciones (Doble Checkbox de Privacidad):** En la primera pantalla del portal de onboarding clínico, se implementará un esquema de consentimiento en dos niveles mediante controles interactivos separados:
+  * *Aceptación del Aviso de Privacidad (Obligatorio):* Requerido bajo la normativa NOM-024 / LFPDPPP para iniciar la captura de datos.
+  * *Envío de Recordatorios y Notificaciones (Opcional):* Checkbox voluntario que permite al paciente autorizar o declinar el envío de recordatorios de citas y avisos médicos vía WhatsApp o correo electrónico.
+* **[FR-2.7] Purgado de Memoria RAM "Anti-Shoulder Surfing" y Bloqueo de Historial:** Para mitigar fugas accidentales de información médica sensible en dispositivos móviles (hombros mirones o pérdida del teléfono), una vez enviado el formulario de onboarding de forma exitosa, el frontend eliminará de forma inmediata toda la información de la memoria RAM del cliente (`setState(null)`). Adicionalmente, el sistema reemplazará la URL de la sesión en el historial del navegador (`history.replaceState()`) para inhabilitar el botón de retroceso ("Atrás") del navegador, mostrando una pantalla estática de éxito e instando al usuario a cerrar la pestaña.
 
 ### **Épica 3: Dashboard Médico y Expediente Clínico Central**
 
@@ -84,6 +91,9 @@ Desarrollar una plataforma integral de gestión de expedientes clínicos que eli
   * Histórico de Peso.
   * Histórico de Presión Arterial (curvas separadas de Sistólica y Diastólica).
   * Histórico de IMC.
+* **[FR-3.8] Atajos y Quick Chips Clínicos en Editor SOAP:** Cada sección del editor SOAP (S, O, A, P) contará con un listado dinámico de "Quick Chips" (atajos de texto clínico rápido frecuentemente utilizados, ej. 'TA normal', 'Sin fiebre', 'Manejo ambulatorio'). Al hacer clic en un chip, el texto correspondiente se insertará automáticamente al final del campo activo del editor, seguido de un punto y un espacio, mejorando la velocidad de captura del médico. El sistema registrará de forma defensiva e inmutable cada inserción bajo el evento `SOAP_CHIP_INSERTED` en el Audit Trail.
+* **[FR-3.9] Notas Aclaratorias con Firma HMAC Criptográfica:** Conforme a la NOM-004-SSA3-2012, las notas SOAP firmadas son de solo lectura y bloqueadas en base de datos. Sin embargo, para realizar precisiones clínicas posteriores, el sistema implementará un módulo de "Notas Aclaratorias" (longitud mínima de 10 caracteres) indexadas a la nota principal. Al guardar una aclaración, el sistema calculará un sello de firma digital inmutable mediante un algoritmo criptográfico `HMAC-SHA256` utilizando una clave secreta clínica (`CLINICAL_SECRET_KEY`) y la guardará en la tabla `soap_aclaraciones`.
+* **[FR-3.10] Descifrado de Triage Seguro en Capa de DB y Registro en Audit Trail:** La visualización de la información clínica del paciente (Alergias, Medicamentos, Padecimientos y Motivo de Consulta) desde el Sidebar Sticky de Triage operará de forma cifrada de extremo a extremo. El descifrado se realizará exclusivamente en el motor de base de datos a través de una función RPC segura (`get_decrypted_triage`), la cual descifra las columnas mediante `pgp_sym_decrypt` utilizando llaves resguardadas en Supabase Vault. Como efecto colateral atómico y obligatorio, la ejecución de la RPC insertará en la misma transacción un registro del evento `CLINICAL_RECORD_VIEW` en la tabla de auditoría, capturando el ID del médico consultante, la dirección IP del cliente y el User-Agent.
 
 ### **Épica 4: Expediente de Archivos Clínicos Adjuntos (Secure Document Store)**
 
@@ -118,6 +128,7 @@ Desarrollar una plataforma integral de gestión de expedientes clínicos que eli
   * `CLINICAL_FILE_VIEW`: Visualización/descarga de un archivo clínico adjunto (ID del médico, ID del archivo, timestamp).
   * `QR_SOFT_PASS_GENERATE`: Generación del pase QR tras bloqueo o a petición (consulta_id, token_opaco, timestamp).
   * `QR_SOFT_PASS_SCAN`: Escaneo y consumo exitoso del pase QR en recepción (consulta_id, timestamp, rol_asistente).
+  * `SOAP_CHIP_INSERTED`: Inserción de atajo clínico pre-formateado en notas SOAP (consulta_id, campo, chip, timestamp).
 
 ---
 
@@ -125,7 +136,7 @@ Desarrollar una plataforma integral de gestión de expedientes clínicos que eli
 
 * **[SEC-1] Cifrado en Tránsito:** Uso forzoso de TLS 1.3 (fallback mínimo TLS 1.2) en todos los endpoints públicos y privados. Redirección HTTP estricta a HTTPS (HSTS configurado).
 * **[SEC-2] Cifrado en Reposo:** Cifrado nativo de base de datos de bloque completo con AES-256. Adicionalmente, las notas SOAP, diagnósticos y padecimientos del paciente contarán con cifrado a nivel de columna (Column-Level Encryption) utilizando claves administradas de forma segura (KMS).
-* **[SEC-3] Sanitización XSS:** Sanitización estricta de todos los campos de texto libre antes de su guardado y renderizado mediante bibliotecas de backend (ej. DOMPurify). Queda prohibida la inyección directa de HTML sin sanitizar (`dangerouslySetInnerHTML` u homólogos).
+* **[SEC-3] Sanitización XSS:** Sanitización estricta de todos los campos de texto libre antes de su guardado y renderizado mediante bibliotecas de backend (ej. DOMPurify o sanitizadores recursivos nativos). Queda prohibida la inyección directa de HTML sin sanitizar (`dangerouslySetInnerHTML` u homólogos).
 * **[SEC-4] Control de Acceso por Roles (RBAC):**
   * `Médico (Admin)`: Lectura/Escritura completa en expedientes y configuración de la agenda.
   * `Asistente`: Lectura/Escritura en agenda; prohibida la lectura de campos clínicos (Alergias, SOAP, diagnósticos CIE-10, archivos clínicos adjuntos).

@@ -63,11 +63,12 @@ export function FileUploadZone({ consultaId, onUploadSuccess }: FileUploadZonePr
     
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321';
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+      const isMock = supabaseUrl.includes('your-project-id') || !supabaseAnonKey;
+
       // MOCK BEHAVIOR: Since we don't have real cloud credentials configured locally yet,
       // we will simulate the network delay to demonstrate the UI states.
       // In production, this directly calls the edge function.
-      const isMock = supabaseUrl.includes('your-project-id');
-
       if (isMock) {
         await new Promise(r => setTimeout(r, 2000));
         // Fake virus detection if the word 'virus' is in the filename
@@ -88,9 +89,13 @@ export function FileUploadZone({ consultaId, onUploadSuccess }: FileUploadZonePr
 
       // REAL IMPLEMENTATION
       const session = (await supabase.auth.getSession()).data.session;
-      const activeDoctorId = session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-      const sessionToken = session?.access_token || supabaseAnonKey;
+
+      if (!session && !isMock) {
+        throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+      }
+
+      const activeDoctorId = session?.user?.id || (isMock ? 'a6b12a8a-e55d-4f11-8ac1-f11181283c44' : '');
+      const sessionToken = session?.access_token || (isMock ? 'mock-doctor-session-token' : '');
 
       const formData = new FormData();
       formData.append('file', file);

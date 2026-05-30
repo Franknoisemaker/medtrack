@@ -85,7 +85,12 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
         // 1. Try to load remote note first to sync signed state or remote drafts
         const { data: remoteNote, error: remoteErr } = await supabase
           .from('notas_soap')
-          .select('*')
+          .select(`
+            *,
+            consultas (
+              medico_id
+            )
+          `)
           .eq('consulta_id', consultaId)
           .maybeSingle();
 
@@ -113,12 +118,35 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
               minute: '2-digit',
             });
 
+            let doctorName = 'Dr. Médico';
+            let doctorCedula = 'PENDIENTE';
+            
+            const activeSession = (await supabase.auth.getSession().catch(() => ({ data: { session: null } }))).data?.session;
+            const docId = (remoteNote.consultas as any)?.medico_id;
+            
+            if (activeSession?.user?.id === docId) {
+              doctorName = activeSession.user.user_metadata?.nombre || doctorName;
+              doctorCedula = activeSession.user.user_metadata?.cedula || doctorCedula;
+            }
+
+            if (docId) {
+              try {
+                const { data: medicoProfile } = await supabase.rpc('get_decrypted_medico', { p_medico_id: docId });
+                if (medicoProfile && medicoProfile.length > 0) {
+                  doctorName = medicoProfile[0].nombre;
+                  doctorCedula = medicoProfile[0].cedula;
+                }
+              } catch (err) {
+                console.warn('Could not fetch signed doctor profile:', err);
+              }
+            }
+
             onNoteLoaded?.({
               isSigned: true,
               signedMeta: {
                 firmadaEn: formattedDate,
-                medico: 'Dr. Alejandro Guerrero',
-                cedula: '12345678',
+                medico: doctorName,
+                cedula: doctorCedula,
               },
               fields: soapFields,
             });
@@ -187,10 +215,19 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
     // Wrapped defensively: stub supabase client in local sandbox may not support auth.getSession
     const logChip = async () => {
       try {
-        let medicoId = 'demo-medico-id';
+        let medicoId = '';
         if (supabase.auth?.getSession) {
           const result = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
-          medicoId = result?.data?.session?.user?.id || 'demo-medico-id';
+          medicoId = result?.data?.session?.user?.id || '';
+        }
+        if (!medicoId) {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+          const isMock = supabaseUrl.includes('your-project-id');
+          if (isMock) {
+            medicoId = 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
+          } else {
+            return;
+          }
         }
         await supabase.from('audit_logs').insert({
           consulta_id: consultaId,
@@ -285,14 +322,22 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
       const timestamp = new Date().toISOString();
       const sigPayload = `aclaracion:${consultaId}:${timestamp}:${aclaracionText.trim()}`;
       const encoder = new TextEncoder();
-      const keyData = encoder.encode('medtrack_clinical_secret_key_2026_nom024');
+      const clinicalSecret = import.meta.env.VITE_CLINICAL_SECRET_KEY || 'medtrack_clinical_secret_key_2026_nom024';
+      const keyData = encoder.encode(clinicalSecret);
       const msgData = encoder.encode(sigPayload);
       const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
       const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
       const firma = Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-      const session = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
-      const activeDoctorId = session?.data?.session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
+      const session = (await supabase.auth.getSession().catch(() => ({ data: { session: null } }))).data?.session;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+      const isMock = supabaseUrl.includes('your-project-id');
+
+      if (!session && !isMock) {
+        throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+      }
+
+      const activeDoctorId = session?.user?.id || (isMock ? 'a6b12a8a-e55d-4f11-8ac1-f11181283c44' : '');
 
       const { error: insertErr } = await supabase.from('soap_aclaraciones').insert({
         nota_soap_id: notaData.id,

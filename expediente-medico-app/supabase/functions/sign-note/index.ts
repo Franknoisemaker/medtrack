@@ -26,9 +26,23 @@ serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const jwtSecret = Deno.env.get('JWT_SECRET') || 'medtrack_clinical_secret_key_2026_nom024';
+    const isLocalDev = !supabaseUrl.startsWith('https://') || 
+                       supabaseUrl.includes('localhost') || 
+                       supabaseUrl.includes('127.0.0.1');
 
+    let jwtSecret = Deno.env.get('JWT_SECRET');
+    if (!jwtSecret) {
+      if (isLocalDev) {
+        jwtSecret = 'medtrack_clinical_secret_key_2026_nom024';
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Internal Server Error: Secure clinical signing key configuration is missing on server.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();

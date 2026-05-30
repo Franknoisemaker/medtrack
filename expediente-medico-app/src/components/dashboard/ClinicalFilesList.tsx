@@ -30,8 +30,14 @@ export function ClinicalFilesList({ consultaId, files }: ClinicalFilesListProps)
     
     try {
       const session = (await supabase.auth.getSession()).data.session;
-      const activeDoctorId = session?.user?.id || 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
-      const sessionToken = session?.access_token || supabaseAnonKey;
+      const isMock = supabaseUrl.includes('your-project-id') || !supabaseAnonKey;
+
+      if (!session && !isMock) {
+        throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+      }
+
+      const activeDoctorId = session?.user?.id || (isMock ? 'a6b12a8a-e55d-4f11-8ac1-f11181283c44' : '');
+      const sessionToken = session?.access_token || (isMock ? 'mock-doctor-session-token' : '');
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/get-file?archivo_id=${archivoId}&medico_id=${activeDoctorId}&apikey=${supabaseAnonKey}`, {
         method: 'GET',
