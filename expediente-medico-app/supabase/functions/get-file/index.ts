@@ -40,21 +40,23 @@ serve(async (req: Request) => {
       );
     }
 
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     // 1. Authenticate user from JWT token
     const authHeader = req.headers.get('Authorization');
     let authenticatedMedicoId: string | null = null;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
-        const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || '', {
-          global: { headers: { Authorization: authHeader } }
-        });
-        const { data: { user } } = await authClient.auth.getUser();
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error } = await supabase.auth.getUser(token);
         if (user) {
           authenticatedMedicoId = user.id;
+        } else if (error) {
+          console.error('Error validating JWT token:', error);
         }
       } catch (err) {
-        console.error('Error validating JWT token:', err);
+        console.error('Exception validating JWT token:', err);
       }
     }
 
@@ -76,9 +78,6 @@ serve(async (req: Request) => {
         );
       }
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     // 2. Validate file exists and user has access (RLS)
     const { data: fileRecord, error: dbError } = await supabase
       .from('archivos_clinicos')
