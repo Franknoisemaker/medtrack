@@ -20,29 +20,45 @@ export function PatientSearch({ onSelectPatientRecord }: PatientSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PatientResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
+  // Reset page when query changes
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  // Fetch data with debounce
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
-      if (query.trim().length >= 2) {
-        searchPatients();
-      } else if (query.trim().length === 0) {
-        setResults([]);
-      }
+      searchPatients();
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [query]);
+  }, [query, page]);
 
   const searchPatients = async () => {
     setIsLoading(true);
     try {
-      const { data: patientsData, error: patientsError } = await supabase
+      const pageSize = 20;
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let supabaseQuery = supabase
         .from('pacientes')
         .select('id, nombre, telefono, email, fecha_nacimiento')
-        .ilike('nombre', `%${query.trim()}%`)
-        .limit(15);
+        .order('nombre', { ascending: true })
+        .range(from, to);
+
+      if (query.trim().length > 0) {
+        supabaseQuery = supabaseQuery.ilike('nombre', `%${query.trim()}%`);
+      }
+
+      const { data: patientsData, error: patientsError } = await supabaseQuery;
 
       if (patientsError) throw patientsError;
+
+      setHasMore((patientsData || []).length === pageSize);
 
       const formatted: PatientResult[] = await Promise.all(
         (patientsData || []).map(async (p) => {
@@ -160,12 +176,6 @@ export function PatientSearch({ onSelectPatientRecord }: PatientSearchProps) {
             🔍
           </span>
         </div>
-        
-        {query.trim().length > 0 && query.trim().length < 2 && (
-          <p style={{ fontSize: '0.8rem', color: 'var(--color-primary)', opacity: 0.6, marginTop: '0.5rem' }}>
-            Escribe al menos 2 letras para buscar...
-          </p>
-        )}
       </div>
 
       {/* Results Section */}
@@ -173,11 +183,11 @@ export function PatientSearch({ onSelectPatientRecord }: PatientSearchProps) {
         {isLoading ? (
           <div className="card-glass" style={{ padding: '2rem', textAlign: 'center' }}>
             <span style={{ fontSize: '0.9rem', color: 'var(--color-primary)', opacity: 0.7 }}>
-              Buscando coincidencias clínicas...
+              Cargando pacientes...
             </span>
           </div>
         ) : results.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {results.map((p) => {
               const age = calculateAge(p.fecha_nacimiento);
               return (
@@ -185,35 +195,31 @@ export function PatientSearch({ onSelectPatientRecord }: PatientSearchProps) {
                   key={p.id}
                   className="card-glass"
                   style={{
-                    padding: '1.5rem',
+                    padding: '1rem 1.5rem',
                     borderRadius: '12px',
                     display: 'flex',
-                    flexDirection: 'column',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                     border: '1px solid var(--color-border)',
                     transition: 'all 0.2s',
-                    cursor: 'pointer',
                   }}
-                  onClick={() => handleOpenRecord(p)}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
                     e.currentTarget.style.borderColor = 'var(--color-secondary)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.borderColor = 'var(--color-border)';
                   }}
                 >
-                  <div>
-                    <h4 style={{
-                      fontSize: '1.05rem',
-                      fontWeight: 700,
-                      color: 'var(--color-primary)',
-                      margin: '0 0 0.5rem 0',
-                    }}>
-                      {p.nombre}
-                    </h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.25rem' }}>
+                      <h4 style={{
+                        fontSize: '1.05rem',
+                        fontWeight: 700,
+                        color: 'var(--color-primary)',
+                        margin: 0,
+                      }}>
+                        {p.nombre}
+                      </h4>
                       <span style={{
                         fontSize: '0.75rem',
                         padding: '2px 8px',
@@ -224,57 +230,81 @@ export function PatientSearch({ onSelectPatientRecord }: PatientSearchProps) {
                       }}>
                         {age > 0 ? `${age} años` : 'Falta Onboarding'}
                       </span>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        background: 'rgba(0, 0, 0, 0.05)',
-                        color: 'var(--color-primary)',
-                        opacity: 0.7,
-                      }}>
-                        📞 {p.telefono}
-                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--color-primary)', opacity: 0.7 }}>
+                      <span>📞 {p.telefono}</span>
+                      {p.email && <span>📧 {p.email}</span>}
+                      <span>• Última Consulta: {p.lastConsultaDate ? new Date(p.lastConsultaDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Ninguna'}</span>
                     </div>
                   </div>
 
-                  <div style={{
-                    borderTop: '1px solid var(--color-border)',
-                    paddingTop: '0.75rem',
-                    marginTop: '0.5rem',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', opacity: 0.6 }}>
-                      Última Consulta: {p.lastConsultaDate ? new Date(p.lastConsultaDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Ninguna'}
-                    </span>
-                    <span style={{
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
+                  <button
+                    onClick={() => handleOpenRecord(p)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      background: 'var(--color-surface-glass)',
+                      border: '1px solid var(--color-border)',
                       color: 'var(--color-secondary)',
-                    }}>
-                      Ver Expediente →
-                    </span>
-                  </div>
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--color-surface-glass)'}
+                  >
+                    Ver / Editar
+                  </button>
                 </div>
               );
             })}
+
+            {/* Pagination Controls */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--color-border)',
+                  background: page === 1 ? 'transparent' : 'var(--color-surface-glass)',
+                  color: 'var(--color-primary)',
+                  cursor: page === 1 ? 'not-allowed' : 'pointer',
+                  opacity: page === 1 ? 0.5 : 1,
+                }}
+              >
+                ← Anterior
+              </button>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-primary)', opacity: 0.8 }}>
+                Página {page}
+              </span>
+              <button
+                disabled={!hasMore}
+                onClick={() => setPage(p => p + 1)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--color-border)',
+                  background: !hasMore ? 'transparent' : 'var(--color-surface-glass)',
+                  color: 'var(--color-primary)',
+                  cursor: !hasMore ? 'not-allowed' : 'pointer',
+                  opacity: !hasMore ? 0.5 : 1,
+                }}
+              >
+                Siguiente →
+              </button>
+            </div>
           </div>
-        ) : query.trim().length >= 2 ? (
+        ) : (
           <div className="card-glass" style={{ padding: '3rem', textAlign: 'center', borderRadius: '12px' }}>
             <span style={{ fontSize: '1.5rem' }}>📭</span>
             <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-primary)', margin: '0.5rem 0 0 0' }}>
               No se encontraron pacientes
             </p>
             <p style={{ fontSize: '0.8rem', color: 'var(--color-primary)', opacity: 0.6, margin: '0.25rem 0 0 0' }}>
-              Verifica el nombre completo o CURP e intenta de nuevo.
-            </p>
-          </div>
-        ) : (
-          <div className="card-glass" style={{ padding: '3rem', textAlign: 'center', borderRadius: '12px', opacity: 0.8 }}>
-            <span style={{ fontSize: '1.5rem', opacity: 0.6 }}>🔎</span>
-            <p style={{ fontSize: '0.9rem', color: 'var(--color-primary)', opacity: 0.7, margin: '0.5rem 0 0 0' }}>
-              Utiliza la barra superior para buscar pacientes y auditar expedientes históricos.
+              Intenta con otro término de búsqueda.
             </p>
           </div>
         )}

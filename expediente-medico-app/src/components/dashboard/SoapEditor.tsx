@@ -539,7 +539,20 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
 
         {/* SOAP Fields */}
         {FIELD_META.map(({ key, label, icon, placeholder }) => (
-          <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div 
+            key={key} 
+            style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+            onBlur={(e) => {
+              // Only trigger blur if focus actually leaves this entire field container
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                if (activeField === key) setActiveField(null);
+                if (key === 'analisis') {
+                  setCie10Query('');
+                  setCie10Results([]);
+                }
+              }
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-primary)' }}>
                 {icon} {label}
@@ -658,7 +671,6 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
               value={fields[key]}
               onChange={e => setField(key, e.target.value)}
               onFocus={() => setActiveField(key)}
-              onBlur={() => { setActiveField(null); if (key === 'analisis') { setCie10Query(''); setCie10Results([]); } }}
               placeholder={placeholder}
               rows={4}
               style={{

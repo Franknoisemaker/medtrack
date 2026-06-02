@@ -931,11 +931,14 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)', opacity: 0.7 }}>Total de Consultas</label>
                   <input
-                    type="number"
-                    min={2}
-                    max={12}
-                    value={recurrenciaOcurrencias}
-                    onChange={(e) => setRecurrenciaOcurrencias(Math.min(12, Math.max(2, parseInt(e.target.value) || 2)))}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={recurrenciaOcurrencias || ''}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setRecurrenciaOcurrencias(val ? parseInt(val) : '' as any);
+                    }}
                     style={{
                       width: '100%',
                       padding: '6px 8px',
