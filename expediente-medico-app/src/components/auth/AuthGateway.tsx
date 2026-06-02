@@ -88,6 +88,27 @@ export function AuthGateway({ onAuthSuccess }: AuthGatewayProps) {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setErrorMessage('Por favor ingresa tu correo electrónico arriba para poder enviarte el enlace de recuperación.');
+      return;
+    }
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/`,
+      });
+      if (error) throw error;
+      setErrorMessage('¡Correo de recuperación enviado! Revisa tu bandeja de entrada o spam para restablecer tu contraseña. (exitoso)');
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      setErrorMessage(err.message || 'Ocurrió un error al enviar el correo de recuperación.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -229,6 +250,26 @@ export function AuthGateway({ onAuthSuccess }: AuthGatewayProps) {
                 outline: 'none',
               }}
             />
+            {!isRegister && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={isLoading}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#818cf8',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+            )}
           </div>
 
           <button
