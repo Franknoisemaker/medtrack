@@ -124,10 +124,19 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
         setSearchResults(filtered);
         setShowDropdown(filtered.length > 0);
       } else {
-        // Real-time Supabase patient query
+        const session = (await supabase.auth.getSession()).data.session;
+        const doctorId = session?.user?.id;
+        
+        if (!doctorId) return;
+
+        // Real-time Supabase patient query restricted by doctor ownership
         const { data, error } = await supabase
           .from('pacientes')
-          .select('id, nombre, telefono, email')
+          .select(`
+            id, nombre, telefono, email,
+            consultas!inner ( medico_id )
+          `)
+          .eq('consultas.medico_id', doctorId)
           .ilike('nombre', `%${query}%`)
           .limit(5);
 

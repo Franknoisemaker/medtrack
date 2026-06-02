@@ -10,6 +10,7 @@ import type { ClinicalFile } from './ClinicalFilesList';
 import { useSomatometrics } from '../../hooks/useSomatometrics';
 import { NewAppointmentForm } from './NewAppointmentForm';
 import type { Appointment } from './NewAppointmentForm';
+import { HistoricalNoteModal } from './HistoricalNoteModal';
 
 interface PatientRecordProps {
   appointment: Appointment;
@@ -34,6 +35,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   const [isSigned, setIsSigned] = useState(appointment.status === 'COMPLETED');
   const [signedMeta, setSignedMeta] = useState<{ firmadaEn: string; medico: string; cedula: string } | null>(null);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [showHistoricalNoteModal, setShowHistoricalNoteModal] = useState(false);
   const [timelineTab, setTimelineTab] = useState<'future' | 'history'>('future');
 
   const [historyData, setHistoryData] = useState<any[]>([]);
@@ -644,6 +646,23 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.75rem' }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 📆 Línea de Tiempo de Consultas
+                <button
+                  onClick={() => setShowHistoricalNoteModal(true)}
+                  style={{
+                    marginLeft: '12px',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: 'transparent',
+                    border: '1px dashed var(--color-border)',
+                    color: 'var(--color-primary)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    opacity: 0.8
+                  }}
+                >
+                  📝 Agregar Histórica
+                </button>
               </h3>
               {/* Pestañas Interactivas */}
               <div style={{ display: 'flex', background: 'var(--color-surface)', padding: '3px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
@@ -987,6 +1006,17 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             />
           </div>
         </div>
+      )}
+
+      {showHistoricalNoteModal && appointment.paciente_id && (
+        <HistoricalNoteModal
+          pacienteId={appointment.paciente_id}
+          onClose={() => setShowHistoricalNoteModal(false)}
+          onSuccess={() => {
+            fetchPatientAppointments();
+            fetchHistory();
+          }}
+        />
       )}
     </div>
   );

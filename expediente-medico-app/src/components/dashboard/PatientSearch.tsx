@@ -40,13 +40,25 @@ export function PatientSearch({ onSelectPatientRecord }: PatientSearchProps) {
   const searchPatients = async () => {
     setIsLoading(true);
     try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const doctorId = session?.user?.id;
+      
+      if (!doctorId) {
+        console.error('No valid doctor session found.');
+        return;
+      }
+
       const pageSize = 20;
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
       let supabaseQuery = supabase
         .from('pacientes')
-        .select('id, nombre, telefono, email, fecha_nacimiento')
+        .select(`
+          id, nombre, telefono, email, fecha_nacimiento,
+          consultas!inner ( medico_id )
+        `)
+        .eq('consultas.medico_id', doctorId)
         .order('nombre', { ascending: true })
         .range(from, to);
 
