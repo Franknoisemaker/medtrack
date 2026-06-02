@@ -50,6 +50,11 @@ function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
 
+  // Password Recovery Flow
+  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
   // 1. Check active session on mount
   useEffect(() => {
     // Safety fallback timeout to ensure loading screen always clears within 3 seconds
@@ -78,6 +83,9 @@ function App() {
     // Listen for auth state changes with version-agnostic safe access
     const authListener = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
       setSession(currentSession);
+      if (_event === 'PASSWORD_RECOVERY') {
+        setShowPasswordRecovery(true);
+      }
       if (currentSession?.user) {
         await fetchMedicoProfile(currentSession.user.id, currentSession);
       } else {
@@ -599,6 +607,42 @@ function App() {
             onClose={() => setShowNewAppModal(false)}
             onSuccess={loadAppointments}
           />
+        )}
+
+        {/* Password Recovery Modal */}
+        {showPasswordRecovery && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div className="card-glass" style={{ width: '400px', padding: '2.5rem', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--color-primary)' }}>Restablecer Contraseña</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--color-primary)', opacity: 0.7, marginBottom: '1.5rem' }}>
+                Ingresa tu nueva contraseña para acceder a la plataforma.
+              </p>
+              <input
+                type="password"
+                placeholder="Nueva Contraseña (mínimo 6 caracteres)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface-glass)', color: 'var(--color-primary)', marginBottom: '1.5rem', outline: 'none' }}
+              />
+              <button
+                disabled={isUpdatingPassword || newPassword.length < 6}
+                onClick={async () => {
+                  setIsUpdatingPassword(true);
+                  const { error } = await supabase.auth.updateUser({ password: newPassword });
+                  setIsUpdatingPassword(false);
+                  if (error) {
+                    alert('Error al actualizar contraseña: ' + error.message);
+                  } else {
+                    alert('Contraseña actualizada correctamente.');
+                    setShowPasswordRecovery(false);
+                  }
+                }}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'linear-gradient(90deg, #0ea5e9, #6366f1)', color: '#ffffff', border: 'none', fontWeight: 700, cursor: (isUpdatingPassword || newPassword.length < 6) ? 'not-allowed' : 'pointer', opacity: (isUpdatingPassword || newPassword.length < 6) ? 0.6 : 1 }}
+              >
+                {isUpdatingPassword ? 'Actualizando...' : 'Actualizar Contraseña'}
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Footer */}
