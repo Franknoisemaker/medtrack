@@ -19,7 +19,23 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
   const [objetivo, setObjetivo] = useState('');
   const [analisis, setAnalisis] = useState('');
   const [plan, setPlan] = useState('');
+  
+  // Somatometría
+  const [peso, setPeso] = useState('');
+  const [talla, setTalla] = useState('');
+  const [paSistolica, setPaSistolica] = useState('');
+  const [paDiastolica, setPaDiastolica] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const calcularIMC = () => {
+    if (peso && talla) {
+      const p = parseFloat(peso);
+      const t = parseFloat(talla) / 100;
+      if (t > 0) return (p / (t * t)).toFixed(1);
+    }
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +97,13 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
           body: JSON.stringify({
             consulta_id: newConsulta.id,
             soap_json: { subjetivo, objetivo, analisis, plan },
-            somatometria_json: null, // Omitted for simplicity, could be added later
+            somatometria_json: (peso && talla && paSistolica && paDiastolica) ? {
+              peso_kg: parseFloat(peso),
+              talla_cm: parseFloat(talla),
+              pa_sistolica: parseInt(paSistolica),
+              pa_diastolica: parseInt(paDiastolica),
+              imc: parseFloat(calcularIMC() || '0') || null
+            } : null,
             medico_id: medicoId,
             cedula,
           }),
@@ -110,15 +132,14 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
     <div style={{
       position: 'fixed',
       top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      backdropFilter: 'blur(4px)',
+      backgroundColor: 'rgba(15,23,42,0.85)',
       zIndex: 9999,
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
       padding: '1rem'
     }}>
-      <div className="card-glass" style={{
+      <div style={{
         width: '100%',
         maxWidth: '700px',
         maxHeight: '90vh',
@@ -127,7 +148,7 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
         borderRadius: '16px',
         background: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+        boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: 'var(--color-primary)' }}>
@@ -167,6 +188,25 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
                 outline: 'none',
               }}
             />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px', border: '1px dashed var(--color-border)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Peso (kg)</label>
+              <input type="number" step="0.1" value={peso} onChange={e => setPeso(e.target.value)} placeholder="Ej. 70.5" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Talla (cm)</label>
+              <input type="number" value={talla} onChange={e => setTalla(e.target.value)} placeholder="Ej. 170" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Presión Sistólica</label>
+              <input type="number" value={paSistolica} onChange={e => setPaSistolica(e.target.value)} placeholder="Ej. 120" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Presión Diastólica</label>
+              <input type="number" value={paDiastolica} onChange={e => setPaDiastolica(e.target.value)} placeholder="Ej. 80" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

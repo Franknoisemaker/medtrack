@@ -73,8 +73,7 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(8px)',
+      background: 'rgba(15, 23, 42, 0.85)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -82,12 +81,12 @@ export function NewAppointmentModal({ selectedDate, onClose, onSuccess }: NewApp
       padding: '1.5rem',
       fontFamily: 'Inter, system-ui, sans-serif',
     }}>
-      <div className="card-glass" style={{
+      <div style={{
         maxWidth: '460px',
         width: '100%',
         padding: '2.5rem',
         borderRadius: '16px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
         border: '1px solid var(--color-border)',
         background: 'var(--color-bg)',
         color: 'var(--color-primary)',

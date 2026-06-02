@@ -193,8 +193,7 @@ function SingleChart({ cfg, data }: SingleChartProps) {
               width={120}
               height={tooltip.secondary ? 48 : 34}
               rx={6}
-              fill="rgba(30,30,40,0.85)"
-              style={{ backdropFilter: 'blur(8px)' }}
+              fill="rgba(30,30,40,0.98)"
             />
             <text x={Math.min(tooltip.x - 6, SVG_W - 130) + 8} y={tooltip.y - 30} fontSize="9" fill="#fff" fontWeight="bold">
               {tooltip.label}
