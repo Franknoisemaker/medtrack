@@ -403,7 +403,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
             maxHeight: '180px',
             overflowY: 'auto',
             padding: '12px',
-            background: 'var(--color-surface)',
+            background: 'var(--color-bg)',
             borderRadius: '8px',
             border: '1px solid var(--color-border)'
           }}>
@@ -928,9 +928,9 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
                         outline: 'none'
                       }}
                     >
-                      <option value="days" style={{ color: 'var(--color-primary)', background: 'var(--color-surface)' }}>Día(s)</option>
-                      <option value="weeks" style={{ color: 'var(--color-primary)', background: 'var(--color-surface)' }}>Semana(s)</option>
-                      <option value="months" style={{ color: 'var(--color-primary)', background: 'var(--color-surface)' }}>Mes(es)</option>
+                      <option value="days" style={{ color: 'var(--color-primary)', background: 'var(--color-bg)' }}>Día(s)</option>
+                      <option value="weeks" style={{ color: 'var(--color-primary)', background: 'var(--color-bg)' }}>Semana(s)</option>
+                      <option value="months" style={{ color: 'var(--color-primary)', background: 'var(--color-bg)' }}>Mes(es)</option>
                     </select>
                   </div>
                 </div>

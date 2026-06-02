@@ -146,7 +146,7 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
         overflowY: 'auto',
         padding: '2rem',
         borderRadius: '16px',
-        background: 'var(--color-surface)',
+        background: 'var(--color-bg)',
         border: '1px solid var(--color-border)',
         boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
       }}>
@@ -182,7 +182,7 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
                 padding: '10px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--color-border)',
-                background: 'var(--color-surface-glass)',
+                background: 'var(--color-bg)',
                 color: 'var(--color-primary)',
                 fontFamily: 'inherit',
                 outline: 'none',
@@ -193,19 +193,19 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px', border: '1px dashed var(--color-border)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Peso (kg)</label>
-              <input type="number" step="0.1" value={peso} onChange={e => setPeso(e.target.value)} placeholder="Ej. 70.5" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+              <input type="number" step="0.1" value={peso} onChange={e => setPeso(e.target.value)} placeholder="Ej. 70.5" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Talla (cm)</label>
-              <input type="number" value={talla} onChange={e => setTalla(e.target.value)} placeholder="Ej. 170" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+              <input type="number" value={talla} onChange={e => setTalla(e.target.value)} placeholder="Ej. 170" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Presión Sistólica</label>
-              <input type="number" value={paSistolica} onChange={e => setPaSistolica(e.target.value)} placeholder="Ej. 120" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+              <input type="number" value={paSistolica} onChange={e => setPaSistolica(e.target.value)} placeholder="Ej. 120" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary)' }}>Presión Diastólica</label>
-              <input type="number" value={paDiastolica} onChange={e => setPaDiastolica(e.target.value)} placeholder="Ej. 80" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
+              <input type="number" value={paDiastolica} onChange={e => setPaDiastolica(e.target.value)} placeholder="Ej. 80" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-primary)', outline: 'none', fontFamily: 'inherit' }} />
             </div>
           </div>
 
@@ -223,7 +223,7 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
                 padding: '10px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--color-border)',
-                background: 'var(--color-surface-glass)',
+                background: 'var(--color-bg)',
                 color: 'var(--color-primary)',
                 fontFamily: 'inherit',
                 resize: 'vertical',
@@ -246,7 +246,7 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
                 padding: '10px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--color-border)',
-                background: 'var(--color-surface-glass)',
+                background: 'var(--color-bg)',
                 color: 'var(--color-primary)',
                 fontFamily: 'inherit',
                 resize: 'vertical',
@@ -269,7 +269,7 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
                 padding: '10px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--color-border)',
-                background: 'var(--color-surface-glass)',
+                background: 'var(--color-bg)',
                 color: 'var(--color-primary)',
                 fontFamily: 'inherit',
                 resize: 'vertical',
@@ -292,7 +292,7 @@ export function HistoricalNoteModal({ pacienteId, onClose, onSuccess }: Historic
                 padding: '10px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--color-border)',
-                background: 'var(--color-surface-glass)',
+                background: 'var(--color-bg)',
                 color: 'var(--color-primary)',
                 fontFamily: 'inherit',
                 resize: 'vertical',

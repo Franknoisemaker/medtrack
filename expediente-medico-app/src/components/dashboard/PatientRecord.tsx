@@ -665,7 +665,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                 </button>
               </h3>
               {/* Pestañas Interactivas */}
-              <div style={{ display: 'flex', background: 'var(--color-surface)', padding: '3px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', background: 'var(--color-bg)', padding: '3px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
                 <button
                   onClick={() => setTimelineTab('future')}
                   style={{
