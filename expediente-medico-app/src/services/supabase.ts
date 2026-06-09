@@ -7,18 +7,49 @@ const globalSupabase = (window as any).supabase;
 
 // Robust chainable query builder mock for offline/sandbox database queries
 class MockQueryBuilder implements PromiseLike<any> {
+  private table: string;
+  private filterCode: string | null = null;
+
+  constructor(table: string = '') {
+    this.table = table;
+  }
+
   then<TResult1 = any, TResult2 = never>(
     onfulfilled?: ((value: any) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): PromiseLike<TResult1 | TResult2> {
-    return Promise.resolve({ data: [], error: null }).then(onfulfilled, onrejected);
+    let resultData: any = [];
+    if (this.table === 'enlaces_cortos' && this.filterCode) {
+      const shortLinks = JSON.parse(sessionStorage.getItem('mock_short_links') || '{}');
+      const found = shortLinks[this.filterCode];
+      resultData = found ? [found] : [];
+    }
+    return Promise.resolve({ data: resultData, error: null }).then(onfulfilled, onrejected);
   }
 
   select() { return this; }
-  insert() { return Promise.resolve({ data: null, error: null }); }
+  
+  insert(value: any) {
+    if (this.table === 'enlaces_cortos') {
+      const shortLinks = JSON.parse(sessionStorage.getItem('mock_short_links') || '{}');
+      const record = Array.isArray(value) ? value[0] : value;
+      shortLinks[record.code] = record;
+      sessionStorage.setItem('mock_short_links', JSON.stringify(shortLinks));
+      return Promise.resolve({ data: [record], error: null });
+    }
+    return Promise.resolve({ data: null, error: null });
+  }
+
   update() { return Promise.resolve({ data: null, error: null }); }
   delete() { return Promise.resolve({ data: null, error: null }); }
-  eq() { return this; }
+  
+  eq(column: string, value: any) {
+    if (this.table === 'enlaces_cortos' && column === 'code') {
+      this.filterCode = value;
+    }
+    return this;
+  }
+
   neq() { return this; }
   gt() { return this; }
   gte() { return this; }
@@ -26,8 +57,16 @@ class MockQueryBuilder implements PromiseLike<any> {
   lte() { return this; }
   order() { return this; }
   limit() { return this; }
-  single() { return Promise.resolve({ data: null, error: null }); }
-  maybeSingle() { return Promise.resolve({ data: null, error: null }); }
+  
+  async single() {
+    const res = await this;
+    return { data: res.data?.[0] || null, error: res.data?.[0] ? null : { message: 'Not found' } };
+  }
+
+  async maybeSingle() {
+    const res = await this;
+    return { data: res.data?.[0] || null, error: null };
+  }
 }
 
 export const supabase = globalSupabase
@@ -67,7 +106,8 @@ export const supabase = globalSupabase
           return { error: null };
         }
       },
-      from: () => new MockQueryBuilder(),
+      from: (table: string) => new MockQueryBuilder(table),
+
       rpc: (method: string, params?: any) => {
         console.warn(`Sandbox: RPC '${method}' invocado con:`, params);
         if (method === 'get_decrypted_medico') {

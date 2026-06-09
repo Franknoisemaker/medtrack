@@ -59,7 +59,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
   // Status and feedback
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [successData, setSuccessData] = useState<{ token: string; url: string } | null>(null);
+  const [successData, setSuccessData] = useState<{ token: string | null; url: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Validate form inline
@@ -296,13 +296,39 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
       setCreatedAppointments(listCreated);
 
       if (lastResponseData) {
-        let dynamicUrl = lastResponseData.data.url ? lastResponseData.data.url.replace('https://medtrack.mx', window.location.origin) : null;
-        if (dynamicUrl && dynamicUrl.includes('localhost') && dynamicUrl.startsWith('https://')) {
-          dynamicUrl = dynamicUrl.replace('https://', 'http://');
+        let finalUrl: string | null = null;
+        if (lastResponseData.data.token) {
+          const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          
+          try {
+            const { error: shortLinkErr } = await supabase
+              .from('enlaces_cortos')
+              .insert({
+                code: shortCode,
+                long_token: lastResponseData.data.token,
+                expires_at: expiresAt
+              });
+            if (shortLinkErr) throw shortLinkErr;
+            
+            let shortUrl = `${window.location.origin}/?s=${shortCode}`;
+            if (shortUrl.includes('localhost') && shortUrl.startsWith('https://')) {
+              shortUrl = shortUrl.replace('https://', 'http://');
+            }
+            finalUrl = shortUrl;
+          } catch (err) {
+            console.error('Failed to register short link in DB, falling back to long URL:', err);
+            let dynamicUrl = lastResponseData.data.url ? lastResponseData.data.url.replace('https://medtrack.mx', window.location.origin) : null;
+            if (dynamicUrl && dynamicUrl.includes('localhost') && dynamicUrl.startsWith('https://')) {
+              dynamicUrl = dynamicUrl.replace('https://', 'http://');
+            }
+            finalUrl = dynamicUrl;
+          }
         }
+
         setSuccessData({
           token: lastResponseData.data.token,
-          url: dynamicUrl,
+          url: finalUrl,
           status: lastResponseData.data.status || (omitirOnboarding ? 'ACTIVE' : 'PENDING_ONBOARDING')
         } as any);
       }
@@ -315,7 +341,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
   };
 
   const handleCopyLink = () => {
-    if (!successData) return;
+    if (!successData || !successData.url) return;
     navigator.clipboard.writeText(successData.url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -343,7 +369,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
     // Strip leading 52 if present (wa.me accepts standard format)
     const formattedPhone = cleanPhone.length === 10 ? `52${cleanPhone}` : cleanPhone;
     
-    const message = `Hola *${nombre}*, para tu próxima consulta médica en MedTrack, por favor completa tu expediente clínico digital en el siguiente enlace seguro (válido por 24 horas): ${successData.url}`;
+    const message = `🏥 *Expediente Clínico Digital — MedTrack*\n\nHola *${nombre}*,\n\nPara agilizar tu ingreso y resguardar tu historial clínico de forma digital bajo la NOM-004-SSA3, por favor completa tus antecedentes médicos en nuestro portal seguro antes de tu consulta:\n\n🔗 *Enlace de acceso seguro:*\n${successData.url}\n\n_Por tu seguridad, este enlace es de uso único y vencerá en 24 horas. Si tienes dudas, puedes responder a este chat._`;
     return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
   };
 

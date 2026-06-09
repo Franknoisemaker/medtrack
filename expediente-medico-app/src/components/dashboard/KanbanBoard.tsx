@@ -1,4 +1,5 @@
 import type { Appointment } from './NewAppointmentForm';
+import { supabase } from '../../services/supabase';
 
 interface KanbanBoardProps {
   appointments: Appointment[];
@@ -66,20 +67,45 @@ function AppointmentCard({
     } catch { return iso; }
   };
 
-  const handleResendLink = (e: React.MouseEvent) => {
+  const handleResendLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const origin = window.location.origin;
     const uuid = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-    const mockToken = `mock_jwt_${uuid}`;
-    const link = `${origin}/onboarding?token=${mockToken}`;
+    const tokenVal = `mock_jwt_${uuid}`;
+    
+    const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    let link = `${origin}/onboarding?token=${tokenVal}`;
     if (link.includes('localhost') && link.startsWith('https://')) {
-      navigator.clipboard.writeText(link.replace('https://', 'http://'));
-    } else {
-      navigator.clipboard.writeText(link);
+      link = link.replace('https://', 'http://');
     }
-    alert('✅ Enlace copiado al portapapeles. Envíalo por WhatsApp al paciente.');
+
+    try {
+      const { error } = await supabase
+        .from('enlaces_cortos')
+        .insert({
+          code: shortCode,
+          long_token: tokenVal,
+          expires_at: expiresAt
+        });
+      if (error) throw error;
+      
+      let shortUrl = `${origin}/?s=${shortCode}`;
+      if (shortUrl.includes('localhost') && shortUrl.startsWith('https://')) {
+        shortUrl = shortUrl.replace('https://', 'http://');
+      }
+      link = shortUrl;
+    } catch (err) {
+      console.error('Failed to create short link for resend, using fallback long URL:', err);
+    }
+
+    const message = `🏥 *Expediente Clínico Digital — MedTrack*\n\nHola *${appointment.nombre}*,\n\nTe recordamos completar tus antecedentes médicos de forma digital y segura en el siguiente enlace antes de tu consulta:\n\n🔗 *Enlace de acceso seguro:*\n${link}\n\n_Por tu seguridad, este enlace es de uso único y vencerá en 24 horas. Si tienes dudas, puedes responder a este chat._`;
+
+    navigator.clipboard.writeText(message);
+    alert('✅ Mensaje de WhatsApp copiado al portapapeles. ¡Ya puedes pegarlo y enviarlo al paciente!');
   };
 
   return (

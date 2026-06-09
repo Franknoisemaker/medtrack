@@ -39,6 +39,42 @@ function App() {
   const [token, setToken] = useState<string | null>(null);
   const [patientSession, setPatientSession] = useState<{ sessionToken: string; consultaId: string; patient?: any } | null>(null);
 
+  // URL Shortener States
+  const [isResolvingShortCode, setIsResolvingShortCode] = useState(false);
+  const [shortCodeError, setShortCodeError] = useState<string | null>(null);
+
+  const resolveShortLink = async (code: string) => {
+    setIsResolvingShortCode(true);
+    setShortCodeError(null);
+    try {
+      const { data, error } = await supabase
+        .from('enlaces_cortos')
+        .select('long_token, expires_at')
+        .eq('code', code)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        setShortCodeError('El enlace es inválido o no existe.');
+        return;
+      }
+
+      if (new Date(data.expires_at) < new Date()) {
+        setShortCodeError('El enlace ha caducado. Por favor solicita uno nuevo.');
+        return;
+      }
+
+      setToken(data.long_token);
+      setTheme('zen');
+    } catch (err) {
+      console.error('Error resolving short code:', err);
+      setShortCodeError('Ocurrió un error al verificar el enlace de acceso.');
+    } finally {
+      setIsResolvingShortCode(false);
+    }
+  };
+
   // Receptionist QR Soft-Pass URL Token
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [assistedSession, setAssistedSession] = useState<{ sessionToken: string; consultaId: string } | null>(null);
@@ -99,8 +135,11 @@ function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenParam = urlParams.get('token');
     const qrTokenParam = urlParams.get('qr_token');
+    const shortParam = urlParams.get('s');
 
-    if (tokenParam) {
+    if (shortParam) {
+      resolveShortLink(shortParam);
+    } else if (tokenParam) {
       setToken(tokenParam);
       setTheme('zen');
     } else if (qrTokenParam) {
@@ -246,6 +285,75 @@ function App() {
     currentDate.setDate(currentDate.getDate() + days);
     setSelectedDate(currentDate.toISOString().split('T')[0]);
   };
+
+  // --- URL SHORTENER RESOLUTION LOAD SCREEN ---
+  if (isResolvingShortCode) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0f172a',
+        color: '#f8fafc',
+        gap: '1rem',
+        fontFamily: 'system-ui, sans-serif'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid rgba(255,255,255,0.1)',
+          borderTop: '4px solid #0ea5e9',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}></div>
+        <span style={{ fontWeight: 500 }}>Verificando enlace seguro...</span>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}} />
+      </div>
+    );
+  }
+
+  // --- URL SHORTENER ERROR SCREEN ---
+  if (shortCodeError) {
+    return (
+      <div className="theme-zen" style={{
+        minHeight: '100vh',
+        background: 'var(--color-bg)',
+        padding: '2rem 1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'system-ui, sans-serif'
+      }}>
+        <div className="card-glass" style={{
+          maxWidth: '420px',
+          width: '100%',
+          padding: '2.5rem 2rem',
+          textAlign: 'center',
+          borderTop: '4px solid var(--color-error, #ef4444)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <div style={{ fontSize: '3.5rem' }}>⚠️</div>
+          <h2 style={{ fontSize: '1.4rem', color: 'var(--color-primary)', fontWeight: 700 }}>Enlace Inválido o Caducado</h2>
+          <p style={{ fontSize: '0.95rem', color: 'var(--color-primary)', opacity: 0.8, lineHeight: 1.5 }}>
+            {shortCodeError}
+          </p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-primary)', opacity: 0.5 }}>
+            Por favor, solicita un nuevo enlace a tu médico de cabecera.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // --- LOADING PLACEHOLDER ---
   if (isLoadingAuth) {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { KanbanBoard } from './KanbanBoard';
 import type { Appointment } from './NewAppointmentForm';
 
@@ -129,7 +129,7 @@ describe('KanbanBoard Component', () => {
     expect(resendButtons.length).toBe(1);
   });
 
-  it('triggers clipboard copy when "Reenviar enlace" is clicked', () => {
+  it('triggers clipboard copy when "Reenviar enlace" is clicked', async () => {
     // Mock clipboard API and alert
     const mockWriteText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -149,15 +149,15 @@ describe('KanbanBoard Component', () => {
     const button = screen.getByText('🔗 Reenviar enlace');
     fireEvent.click(button);
 
-    expect(mockWriteText).toHaveBeenCalled();
+    await waitFor(() => expect(mockWriteText).toHaveBeenCalled());
     expect(alertSpy).toHaveBeenCalledWith(
-      expect.stringContaining('✅ Enlace copiado al portapapeles')
+      expect.stringContaining('copiado al portapapeles')
     );
 
     alertSpy.mockRestore();
   });
 
-  it('uses simple random fallback if crypto.randomUUID is not available', () => {
+  it('uses simple random fallback if crypto.randomUUID is not available', async () => {
     const originalRandomUUID = global.crypto?.randomUUID;
     if (global.crypto) {
       // @ts-ignore
@@ -182,9 +182,9 @@ describe('KanbanBoard Component', () => {
     const button = screen.getByText('🔗 Reenviar enlace');
     fireEvent.click(button);
 
-    expect(mockWriteText).toHaveBeenCalled();
+    await waitFor(() => expect(mockWriteText).toHaveBeenCalled());
     expect(alertSpy).toHaveBeenCalledWith(
-      expect.stringContaining('✅ Enlace copiado al portapapeles')
+      expect.stringContaining('copiado al portapapeles')
     );
 
     alertSpy.mockRestore();
