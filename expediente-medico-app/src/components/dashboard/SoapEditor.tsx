@@ -88,6 +88,10 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
 
         const remoteNote = remoteNotes?.[0];
 
+        if (remoteErr) {
+          console.error('[SoapEditor] get_decrypted_soap_note error:', remoteErr);
+        }
+
         if (remoteNote && !remoteErr) {
           const soapFields = {
             subjetivo: remoteNote.subjetivo || '',
@@ -98,7 +102,7 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
 
           setFields(soapFields);
 
-          if (remoteNote.status === 'signed') {
+          if (remoteNote.nota_status === 'signed') {
             const formattedDate = new Date(remoteNote.signed_at || remoteNote.creado_at).toLocaleDateString('es-MX', {
               day: '2-digit',
               month: 'long',
@@ -148,6 +152,9 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
             });
             return;
           }
+        } else if (!remoteErr) {
+          // RPC returned no rows — no note saved yet for this consultation, fall through to IndexedDB
+          console.log('[SoapEditor] No remote note found for consulta:', consultaId);
         }
 
         // 2. Fallback to IndexedDB if offline or no remote note yet

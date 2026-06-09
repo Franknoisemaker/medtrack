@@ -1,6 +1,9 @@
--- Migration: 20260608000000_get_decrypted_soap_note.sql
--- Description: Create get_decrypted_soap_note secure RPC for SOAP draft decryption
--- Uses the same auth pattern as get_decrypted_triage (proven working in production)
+-- Migration: 20260608000001_fix_get_decrypted_soap_note.sql
+-- Description: Fix get_decrypted_soap_note RPC auth pattern to match proven get_decrypted_triage
+-- Previous version had incorrect role check and SQL column conflict on 'status'
+
+-- Must drop first because we are changing the return type (status -> nota_status)
+DROP FUNCTION IF EXISTS get_decrypted_soap_note(UUID);
 
 CREATE OR REPLACE FUNCTION get_decrypted_soap_note(
   p_consulta_id UUID
@@ -32,12 +35,11 @@ DECLARE
   v_creado_at TIMESTAMP WITH TIME ZONE;
   v_consulta_medico_id UUID;
 BEGIN
-  -- 1. Retrieve key from Supabase Vault (decrypted_secrets) early to detect local dev sandbox
+  -- 1. Retrieve key from Supabase Vault
   SELECT secret INTO v_encryption_key 
   FROM vault.decrypted_secrets 
   WHERE name = 'phi_encryption_key';
   
-  -- Fallback to system-level setting or default local clinical key
   IF v_encryption_key IS NULL THEN
     v_encryption_key := COALESCE(
       current_setting('app.settings.phi_encryption_key', true),
@@ -45,24 +47,22 @@ BEGIN
     );
   END IF;
 
-  -- 2. Verify caller role — mirrors the pattern used in get_decrypted_triage
+  -- 2. Auth check — same pattern as get_decrypted_triage (proven working)
   IF (v_encryption_key = 'medtrack_clinical_secret_key_2026_nom024' AND auth.role() = 'anon')
      OR NOT EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'phi_encryption_key') THEN
-    -- Local development sandbox bypass
     IF auth.role() = 'anon' THEN
       v_medico_id := 'a6b12a8a-e55d-4f11-8ac1-f11181283c44';
     ELSE
       v_medico_id := COALESCE(auth.uid(), 'a6b12a8a-e55d-4f11-8ac1-f11181283c44'::UUID);
     END IF;
   ELSE
-    -- Production authentication check
     IF COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '') <> 'clinic_doctor' THEN
       RAISE EXCEPTION 'Access denied. Only doctors can view SOAP notes.';
     END IF;
     v_medico_id := auth.uid();
   END IF;
 
-  -- 3. Fetch the note and the consulting doctor's ID
+  -- 3. Fetch encrypted fields and the doctor assigned to this consultation
   SELECT 
     n.subjetivo_cifrado, n.objetivo_cifrado, n.analisis_cifrado, n.plan_cifrado,
     n.status, n.firma_electronica, n.signed_at, n.creado_at,

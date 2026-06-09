@@ -304,6 +304,10 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         const { data: remoteNotes, error } = await supabase
           .rpc('get_decrypted_soap_note', { p_consulta_id: consultaId });
 
+        if (error) {
+          console.error('[PatientRecord] get_decrypted_soap_note error:', error);
+        }
+
         const data = remoteNotes?.[0];
 
         if (data && !error) {
@@ -314,7 +318,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
               objetivo: data.objetivo || '',
               analisis: data.analisis || '',
               plan: data.plan || '',
-              isSigned: data.status === 'signed',
+              isSigned: data.nota_status === 'signed',
               loading: false
             }
           }));
