@@ -83,28 +83,17 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
     async function initDraft() {
       try {
         // 1. Try to load remote note first to sync signed state or remote drafts
-        const { data: remoteNote, error: remoteErr } = await supabase
-          .from('notas_soap')
-          .select(`
-            *,
-            consultas (
-              medico_id
-            )
-          `)
-          .eq('consulta_id', consultaId)
-          .maybeSingle();
+        const { data: remoteNotes, error: remoteErr } = await supabase
+          .rpc('get_decrypted_soap_note', { p_consulta_id: consultaId });
+
+        const remoteNote = remoteNotes?.[0];
 
         if (remoteNote && !remoteErr) {
-          const cleanCifrado = (val: string) => {
-            if (!val) return '';
-            return val.startsWith('[PGP_ENCRYPTED]_') ? val.substring(16) : val;
-          };
-
           const soapFields = {
-            subjetivo: cleanCifrado(remoteNote.subjetivo_cifrado),
-            objetivo: cleanCifrado(remoteNote.objetivo_cifrado),
-            analisis: cleanCifrado(remoteNote.analisis_cifrado),
-            plan: cleanCifrado(remoteNote.plan_cifrado),
+            subjetivo: remoteNote.subjetivo || '',
+            objetivo: remoteNote.objetivo || '',
+            analisis: remoteNote.analisis || '',
+            plan: remoteNote.plan || '',
           };
 
           setFields(soapFields);
@@ -122,7 +111,7 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
             let doctorCedula = 'PENDIENTE';
             
             const activeSession = (await supabase.auth.getSession().catch(() => ({ data: { session: null } }))).data?.session;
-            const docId = (remoteNote.consultas as any)?.medico_id;
+            const docId = remoteNote.medico_id;
             
             if (activeSession?.user?.id === docId) {
               doctorName = activeSession.user.user_metadata?.nombre || doctorName;

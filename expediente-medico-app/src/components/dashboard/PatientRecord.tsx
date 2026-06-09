@@ -301,25 +301,19 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           }
         }));
       } else {
-        const { data, error } = await supabase
-          .from('notas_soap')
-          .select('*')
-          .eq('consulta_id', consultaId)
-          .maybeSingle();
+        const { data: remoteNotes, error } = await supabase
+          .rpc('get_decrypted_soap_note', { p_consulta_id: consultaId });
+
+        const data = remoteNotes?.[0];
 
         if (data && !error) {
-          const cleanCifrado = (val: string) => {
-            if (!val) return '';
-            return val.startsWith('[PGP_ENCRYPTED]_') ? val.substring(16) : val;
-          };
-
           setLoadedSoapNotes(prev => ({
             ...prev,
             [consultaId]: {
-              subjetivo: cleanCifrado(data.subjetivo_cifrado),
-              objetivo: cleanCifrado(data.objetivo_cifrado),
-              analisis: cleanCifrado(data.analisis_cifrado),
-              plan: cleanCifrado(data.plan_cifrado),
+              subjetivo: data.subjetivo || '',
+              objetivo: data.objetivo || '',
+              analisis: data.analisis || '',
+              plan: data.plan || '',
               isSigned: data.status === 'signed',
               loading: false
             }
