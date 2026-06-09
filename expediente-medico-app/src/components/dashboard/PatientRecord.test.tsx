@@ -3,6 +3,9 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { PatientRecord } from './PatientRecord';
 import { supabase } from '../../services/supabase';
 
+// Must start with "mock" to be accessible inside vi.mock
+let mockTriageResult: any = null;
+
 // Mock the supabase service
 vi.mock('../../services/supabase', () => {
   const mockQueryBuilder = {
@@ -18,7 +21,12 @@ vi.mock('../../services/supabase', () => {
   };
   return {
     supabase: {
-      rpc: vi.fn(),
+      rpc: vi.fn().mockImplementation(async (name) => {
+        if (name === 'get_decrypted_triage') {
+          return mockTriageResult || { data: [], error: null };
+        }
+        return { data: null, error: null };
+      }),
       from: vi.fn().mockReturnValue(mockQueryBuilder),
       auth: {
         getSession: vi.fn().mockResolvedValue({
@@ -66,8 +74,11 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTriageResult = null;
     // Configure VITE_SUPABASE_URL to be non-mock to trigger the real RPC path in components
     import.meta.env.VITE_SUPABASE_URL = 'https://real-supabase-project.supabase.co';
+    // Mock window.confirm to bypass unhandled dialog block
+    window.confirm = vi.fn().mockReturnValue(true);
   });
 
   it('calls secure get_decrypted_triage RPC and inserts NOM-024 audit log via database when loading active record', async () => {
@@ -80,10 +91,10 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
       },
     ];
 
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+    mockTriageResult = {
       data: mockTriageResponse,
       error: null,
-    });
+    };
 
     render(
       <PatientRecord
@@ -123,10 +134,10 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
       },
     ];
 
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+    mockTriageResult = {
       data: mockTriageResponse,
       error: null,
-    });
+    };
 
     render(
       <PatientRecord
@@ -141,10 +152,10 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
   });
 
   it('gracefully handles decryption RPC errors by falling back to safe UI without crashing', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+    mockTriageResult = {
       data: null,
       error: { message: 'Decryption key mismatch or database connection timeout' } as any,
-    });
+    };
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -188,10 +199,10 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
       json: async () => mockResponse,
     } as Response);
 
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+    mockTriageResult = {
       data: [{ allergies: '', padecimientos: '' }],
       error: null,
-    });
+    };
 
     render(
       <PatientRecord
