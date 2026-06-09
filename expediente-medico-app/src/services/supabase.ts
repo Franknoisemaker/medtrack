@@ -69,7 +69,9 @@ class MockQueryBuilder implements PromiseLike<any> {
   }
 }
 
-export const supabase = globalSupabase
+const isMockMode = supabaseUrl.includes('your-project-id');
+
+export const supabase = (globalSupabase && !isMockMode)
   ? globalSupabase.createClient(supabaseUrl, supabaseAnonKey)
   : {
       auth: {
