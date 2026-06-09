@@ -437,6 +437,19 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   }, [fetchTriage, fetchPatientAppointments]);
 
   const handleSign = async (soapData: { subjetivo: string; objetivo: string; analisis: string; plan: string }) => {
+    // Validate somatometry before signing — warn doctor if fields are missing
+    const payload = somatometrics.toPayload();
+    const somaIncompleta = !payload.peso_kg || !payload.talla_cm || !payload.pa_sistolica || !payload.pa_diastolica;
+    if (somaIncompleta) {
+      const confirmar = window.confirm(
+        '⚠️ Somatometría incompleta\n\n' +
+        'Los campos de Peso, Talla y/o Presión Arterial están vacíos.\n\n' +
+        'Si firmas sin estos datos, NO quedarán registrados en el expediente y no podrán recuperarse.\n\n' +
+        '¿Deseas continuar y firmar sin somatometría?'
+      );
+      if (!confirmar) return;
+    }
+
     setIsSigning(true);
 
     try {
