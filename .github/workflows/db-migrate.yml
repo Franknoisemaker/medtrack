@@ -53,11 +53,11 @@ jobs:
             --project-ref "${PROJECT_REF}" \
             --password "${DB_PASSWORD}"
 
-      - name: Verificar diff de migraciones pendientes
+      - name: Previsualizar migraciones pendientes (dry-run)
         working-directory: expediente-medico-app
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db diff --use-migra
+        run: supabase db push --dry-run
 
       - name: "Aplicar migraciones (solo si dry_run=false)"
         if: ${{ github.event.inputs.dry_run == 'false' }}
