@@ -407,7 +407,34 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
     const isSeguimiento = (successData as any).status === 'ACTIVE' || !successData.url;
 
     return (
-      <div className="card-glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'center', transition: 'all 0.3s ease' }}>
+      <div className="card-glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'center', transition: 'all 0.3s ease', position: 'relative' }}>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1rem',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--color-primary)',
+              opacity: 0.6,
+              cursor: 'pointer',
+              fontSize: '1.2rem',
+              padding: '4px 8px',
+              borderRadius: '50%',
+              transition: 'opacity 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = '0.6')}
+          >
+            ✕
+          </button>
+        )}
         <div style={{ fontSize: '3rem', margin: '0 auto' }}>
           {esRecurrente ? '🔁' : isSeguimiento ? '🏥' : '🎉'}
         </div>
@@ -536,24 +563,47 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
           </>
         )}
 
-        <button
-          onClick={handleReset}
-          style={{
-            padding: '10px',
-            borderRadius: 'var(--radius-base)',
-            background: 'transparent',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-primary)',
-            fontWeight: 500,
-            fontSize: '0.9rem',
-            marginTop: '0.5rem',
-            transition: 'background 0.2s ease'
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.03)')}
-          onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
-        >
-          {esRecurrente ? 'Agendar Otro Esquema Recurrente' : isSeguimiento ? 'Agendar Otra Consulta de Control' : 'Agendar Otra Cita'}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+          <button
+            onClick={handleReset}
+            style={{
+              padding: '10px',
+              borderRadius: 'var(--radius-base)',
+              background: 'transparent',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-primary)',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+              transition: 'background 0.2s ease',
+              cursor: 'pointer'
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.03)')}
+            onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            {esRecurrente ? 'Agendar Otro Esquema Recurrente' : isSeguimiento ? 'Agendar Otra Consulta de Control' : 'Agendar Otra Cita'}
+          </button>
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{
+                padding: '10px',
+                borderRadius: 'var(--radius-base)',
+                background: 'var(--color-secondary)',
+                color: '#ffffff',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s'
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.opacity = '0.9')}
+              onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+            >
+              Listo / Cerrar
+            </button>
+          )}
+        </div>
       </div>
     );
   }
