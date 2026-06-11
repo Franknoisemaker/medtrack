@@ -491,10 +491,6 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
           </div>
         ) : !isSeguimiento && (
           <>
-            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px', border: '1px dashed var(--color-border)', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-              {successData.url}
-            </div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
               <button
                 onClick={handleCopyLink}
