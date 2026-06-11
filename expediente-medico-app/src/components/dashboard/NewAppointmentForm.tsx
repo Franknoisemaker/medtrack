@@ -340,9 +340,15 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
     }
   };
 
+  const getFormattedMessage = () => {
+    if (!successData || !successData.url) return '';
+    return `🏥 *Expediente Clínico Digital — MedTrack*\n\nHola *${nombre}*,\n\nPara agilizar tu ingreso y resguardar tu historial clínico de forma digital bajo la NOM-004-SSA3, por favor completa tus antecedentes médicos en nuestro portal seguro antes de tu consulta:\n\n🔗 *Enlace de acceso seguro:*\n${successData.url}\n\n_Por tu seguridad, este enlace es de uso único y vencerá en 24 horas. Si tienes dudas, puedes responder a este chat._`;
+  };
+
   const handleCopyLink = () => {
-    if (!successData || !successData.url) return;
-    navigator.clipboard.writeText(successData.url);
+    const message = getFormattedMessage();
+    if (!message) return;
+    navigator.clipboard.writeText(message);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -364,12 +370,11 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
 
   // WhatsApp link message generator
   const getWhatsAppLink = () => {
-    if (!successData) return '';
+    const message = getFormattedMessage();
+    if (!message) return '';
     const cleanPhone = telefono.replace(/\D/g, '');
     // Strip leading 52 if present (wa.me accepts standard format)
     const formattedPhone = cleanPhone.length === 10 ? `52${cleanPhone}` : cleanPhone;
-    
-    const message = `🏥 *Expediente Clínico Digital — MedTrack*\n\nHola *${nombre}*,\n\nPara agilizar tu ingreso y resguardar tu historial clínico de forma digital bajo la NOM-004-SSA3, por favor completa tus antecedentes médicos en nuestro portal seguro antes de tu consulta:\n\n🔗 *Enlace de acceso seguro:*\n${successData.url}\n\n_Por tu seguridad, este enlace es de uso único y vencerá en 24 horas. Si tienes dudas, puedes responder a este chat._`;
     return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
   };
 
@@ -506,7 +511,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
                   transition: 'background 0.2s ease'
                 }}
               >
-                {copied ? '¡Copiado! 📋' : 'Copiar enlace 🔗'}
+                {copied ? '¡Mensaje Copiado! 📋' : 'Copiar mensaje 🔗'}
               </button>
 
               <a
