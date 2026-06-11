@@ -84,15 +84,9 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
       newErrors.email = 'El formato de correo electrónico no es válido.';
     }
 
-    // Future date validation
+    // Date validation
     if (!fechaHora) {
       newErrors.fecha_hora = 'La fecha y hora de la cita son requeridas.';
-    } else {
-      const selectedDate = new Date(fechaHora);
-      const now = new Date();
-      if (selectedDate <= now) {
-        newErrors.fecha_hora = 'La fecha de la cita debe estar en el futuro.';
-      }
     }
 
     setErrors(newErrors);

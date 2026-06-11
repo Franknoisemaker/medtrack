@@ -95,4 +95,32 @@ describe('NewAppointmentForm Component', () => {
     // Verify button feedback state
     expect(screen.getByText(/¡Mensaje Copiado! 📋/i)).toBeInTheDocument();
   });
+
+  it('allows creating an appointment with a date in the past', async () => {
+    const { container } = render(<NewAppointmentForm onAppointmentCreated={mockOnAppointmentCreated} />);
+
+    const nombreInput = screen.getByPlaceholderText('ej. Elena Ruiz Mendoza');
+    const telefonoInput = screen.getByPlaceholderText('ej. 5512345678 (10 dígitos)');
+    const fechaHoraInput = container.querySelector('input[type="datetime-local"]') as HTMLInputElement;
+
+    // Past date: 1 day in the past
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - 1);
+    const pastDateStr = pastDate.toISOString().slice(0, 16);
+
+    fireEvent.change(nombreInput, { target: { value: 'Carlos Slim' } });
+    fireEvent.change(telefonoInput, { target: { value: '5555555555' } });
+    fireEvent.change(fechaHoraInput, { target: { value: pastDateStr } });
+
+    // Submit form
+    const submitBtn = screen.getByText(/Guardar Cita 💾/i);
+    fireEvent.click(submitBtn);
+
+    // Wait for the success screen
+    await waitFor(() => {
+      expect(screen.getByText(/¡Cita Agendada Exitosamente!/i)).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    expect(mockOnAppointmentCreated).toHaveBeenCalled();
+  });
 });
