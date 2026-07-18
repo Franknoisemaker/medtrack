@@ -2,8 +2,8 @@
 title: "Product Requirements Document (PRD) - MedTrack"
 status: "final"
 created: "2026-05-20"
-updated: "2026-06-01"
-version: "1.4"
+updated: "2026-06-11"
+version: "1.5"
 ---
 
 # **Product Requirements Document (PRD)**
@@ -32,6 +32,14 @@ Desarrollar una plataforma integral de gestión de expedientes clínicos que eli
 ---
 
 ## **3. Requerimientos Funcionales (Épicas y Casos de Uso)**
+
+### **Épica 0: Registro, Autenticación y Cifrado del Personal de Salud**
+
+* **[FR-0.1] Portal de Acceso Seguro (Login/Registro):** El médico debe poder registrarse ingresando Nombre completo, Cédula Profesional (Dato Protegido), Correo electrónico y Contraseña. El inicio de sesión validará estas credenciales contra Supabase Auth.
+* **[FR-0.2] Cifrado de Cédula Profesional en Registro:** El sistema protegerá la Cédula Profesional del médico en reposo. Al registrarse, el trigger de base de datos (`handle_new_medico`) interceptará la creación de la cuenta y encriptará de forma simétrica la cédula profesional en la columna `cedula_cifrada` de la tabla `medicos` utilizando una llave staff (`staff_encryption_key`) del vault.
+* **[FR-0.3] Descifrado al Vuelo y Aislamiento por Registro:** El perfil decrypted del médico (incluyendo su Cédula Profesional descifrada) solo se recuperará bajo demanda mediante la RPC `get_decrypted_medico` firmada con `SECURITY DEFINER`. Dicha RPC validará que el médico autenticado (`auth.uid()`) coincida estrictamente con el ID solicitado, previniendo escalamiento de privilegios.
+* **[FR-0.4] Protección de Contraseñas en Cliente (Memory Wipe):** Para evitar la exposición involuntaria de contraseñas mediante la inspección de elementos o herramientas de depuración del navegador, el formulario de autenticación limpiará inmediatamente la variable de estado (`setPassword('')`) al momento de enviar el formulario.
+* **[FR-0.5] Recuperación de Contraseña:** El portal seguro permitirá a los médicos solicitar un enlace de restablecimiento de contraseña vía correo electrónico en caso de olvido.
 
 ### **Épica 1: Motor de Agendamiento y Emisión de Tokens**
 
@@ -77,7 +85,11 @@ Desarrollar una plataforma integral de gestión de expedientes clínicos que eli
   * **O (Objetivo):** Hallazgos físicos, signos vitales, exploración.
   * **A (Análisis):** Juicio clínico y diagnósticos.
   * **P (Plan):** Tratamiento, medicamentos recetados y estudios ordenados.
-  * **Autoguardado Silencioso:** Mecanismo de guardado local asíncrono cada 30 segundos en segundo plano para prevenir pérdida de datos por cortes de sesión.
+  * **Autoguardado Silencioso y Resiliencia Offline (IndexedDB + RPC):** El sistema implementará un flujo de autoguardado en dos niveles para prevenir pérdida de datos:
+    * *Guardado Local (IndexedDB):* Los cambios en los campos SOAP se guardarán localmente en `IndexedDB` en el navegador del médico bajo un esquema debaneado de 5 segundos.
+    * *Sincronización Cloud (RPC):* Cada 30 segundos, el borrador local se sincronizará de forma asíncrona con Supabase invocando la RPC `save_soap_draft`, la cual cifra de forma simétrica (PGP) los campos del borrador antes de guardarlos.
+    * *Detección de Estado de Red:* La interfaz mostrará estados claros de guardado (`"Sin conexión — borrador local"`, `"Guardando borrador..."`, `"Borrador guardado"`). Si el navegador pierde conexión, el sistema almacenará únicamente en IndexedDB y re-sincronizará automáticamente con Supabase tan pronto como se recupere la conexión a internet.
+    * *Contingencia REST:* En caso de fallas en la RPC o ausencia de llaves del vault en entornos de desarrollo local, el sistema aplicará un fallback de contingencia insertando directamente mediante REST y utilizando un prefijo de cifrado local simulado (`[PGP_ENCRYPTED]_`).
 * **[FR-3.4] Integración de Catálogo CIE-10:** El campo de "Análisis (A)" contará con un buscador predictivo que consultará localmente la base de datos del Catálogo Internacional de Enfermedades (CIE-10) en su versión vigente para México, permitiendo indexar códigos diagnósticos exactos (ej. `E11.9` para Diabetes Mellitus tipo 2 sin complicaciones) a la nota clínica.
 * **[FR-3.5] Captura de Somatometría y Signos Vitales:** El editor de la consulta médica debe de proveer campos numéricos estructurados obligatorios para registrar en cada visita:
   * Peso (kg) con precisión de un decimal (ej. 72.5 kg).

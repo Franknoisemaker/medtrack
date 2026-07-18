@@ -6,6 +6,13 @@ export interface SomatometricsState {
   tallaCm: string;
   paSistolica: string;
   paDiastolica: string;
+  musculoPct: string;
+  grasaPct: string;
+  cinturaCm: string;
+  caderaCm: string;
+  bustoCm: string;
+  brazoCm: string;
+  dosisMl: string;
 }
 
 export interface SomatometricsComputed {
@@ -22,6 +29,13 @@ export function useSomatometrics() {
     tallaCm: '',
     paSistolica: '',
     paDiastolica: '',
+    musculoPct: '',
+    grasaPct: '',
+    cinturaCm: '',
+    caderaCm: '',
+    bustoCm: '',
+    brazoCm: '',
+    dosisMl: '',
   });
 
   const setValue = useCallback((field: keyof SomatometricsState, value: string) => {
@@ -29,7 +43,9 @@ export function useSomatometrics() {
   }, []);
 
   const peso = parseFloat(values.pesoKg) || 0;
-  const talla = parseFloat(values.tallaCm) || 0;
+  const rawTalla = parseFloat(values.tallaCm) || 0;
+  // Self-healing: if doctor typed height in meters (e.g., 1.7 instead of 170)
+  const talla = rawTalla > 0 && rawTalla < 3 ? rawTalla * 100 : rawTalla;
 
   const imc = calcularIMC(peso, talla);
   const pesoIdeal = talla > 0 ? calcularPesoIdeal(talla) : null;
@@ -45,7 +61,15 @@ export function useSomatometrics() {
     imc: imc,
     pa_sistolica: parseInt(values.paSistolica) || null,
     pa_diastolica: parseInt(values.paDiastolica) || null,
+    musculo_pct: parseFloat(values.musculoPct) || null,
+    grasa_pct: parseFloat(values.grasaPct) || null,
+    cintura_cm: parseFloat(values.cinturaCm) || null,
+    cadera_cm: parseFloat(values.caderaCm) || null,
+    busto_cm: parseFloat(values.bustoCm) || null,
+    brazo_cm: parseFloat(values.brazoCm) || null,
+    dosis_ml: parseFloat(values.dosisMl) || null,
   });
 
   return { values, setValue, computed, toPayload };
 }
+

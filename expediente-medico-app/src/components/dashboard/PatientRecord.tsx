@@ -37,6 +37,53 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [showHistoricalNoteModal, setShowHistoricalNoteModal] = useState(false);
   const [timelineTab, setTimelineTab] = useState<'future' | 'history'>('future');
+  const [tipoConsulta, setTipoConsulta] = useState<'General' | 'Control de Peso'>('General');
+  const [hoveredTab, setHoveredTab] = useState<'General' | 'Control de Peso' | null>(null);
+
+  useEffect(() => {
+    async function loadConsultationType() {
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+        const isMock = supabaseUrl.includes('your-project-id');
+        if (isMock) {
+          if (appointment.nombre.includes('Elena') || appointment.nombre.includes('Carlos')) {
+            setTipoConsulta('Control de Peso');
+          } else {
+            setTipoConsulta('General');
+          }
+        } else {
+          const { data, error } = await supabase
+            .from('consultas')
+            .select('tipo_consulta')
+            .eq('id', appointment.id)
+            .maybeSingle();
+          if (data && !error && data.tipo_consulta) {
+            setTipoConsulta(data.tipo_consulta as 'General' | 'Control de Peso');
+          }
+        }
+      } catch (err) {
+        console.error('Error loading consultation type:', err);
+      }
+    }
+    loadConsultationType();
+  }, [appointment.id]);
+
+  const handleTipoConsultaChange = async (newType: 'General' | 'Control de Peso') => {
+    setTipoConsulta(newType);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
+      const isMock = supabaseUrl.includes('your-project-id');
+      if (!isMock) {
+        const { error } = await supabase
+          .from('consultas')
+          .update({ tipo_consulta: newType })
+          .eq('id', appointment.id);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error('Error updating consultation type:', err);
+    }
+  };
 
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -75,9 +122,17 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             fecha_hora,
             paciente_somatometria (
               peso_kg,
+              talla_cm,
               imc,
               presion_sistolica,
-              presion_diastolica
+              presion_diastolica,
+              musculo_pct,
+              grasa_pct,
+              cintura_cm,
+              cadera_cm,
+              busto_cm,
+              brazo_cm,
+              dosis_ml
             )
           `)
           .eq('paciente_id', appointment.paciente_id)
@@ -92,10 +147,18 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             const ps = Array.isArray(c.paciente_somatometria) ? c.paciente_somatometria[0] : c.paciente_somatometria;
             return {
               fecha: (c.fecha_hora || '').substring(0, 10),
-              peso: Number(ps.peso_kg),
-              imc: Number(ps.imc),
-              pa_sistolica: Number(ps.presion_sistolica),
-              pa_diastolica: Number(ps.presion_diastolica),
+              peso: ps.peso_kg != null ? Number(ps.peso_kg) : null,
+              talla: ps.talla_cm != null ? Number(ps.talla_cm) : null,
+              imc: ps.imc != null ? Number(ps.imc) : null,
+              pa_sistolica: ps.presion_sistolica != null ? Number(ps.presion_sistolica) : null,
+              pa_diastolica: ps.presion_diastolica != null ? Number(ps.presion_diastolica) : null,
+              musculo_pct: ps.musculo_pct != null ? Number(ps.musculo_pct) : null,
+              grasa_pct: ps.grasa_pct != null ? Number(ps.grasa_pct) : null,
+              cintura_cm: ps.cintura_cm != null ? Number(ps.cintura_cm) : null,
+              cadera_cm: ps.cadera_cm != null ? Number(ps.cadera_cm) : null,
+              busto_cm: ps.busto_cm != null ? Number(ps.busto_cm) : null,
+              brazo_cm: ps.brazo_cm != null ? Number(ps.brazo_cm) : null,
+              dosis_ml: ps.dosis_ml != null ? Number(ps.dosis_ml) : null,
             };
           }) || [];
 
@@ -167,6 +230,13 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             if (data.talla_cm) somatometrics.setValue('tallaCm', String(data.talla_cm));
             if (data.presion_sistolica) somatometrics.setValue('paSistolica', String(data.presion_sistolica));
             if (data.presion_diastolica) somatometrics.setValue('paDiastolica', String(data.presion_diastolica));
+            if (data.musculo_pct) somatometrics.setValue('musculoPct', String(data.musculo_pct));
+            if (data.grasa_pct) somatometrics.setValue('grasaPct', String(data.grasa_pct));
+            if (data.cintura_cm) somatometrics.setValue('cinturaCm', String(data.cintura_cm));
+            if (data.cadera_cm) somatometrics.setValue('caderaCm', String(data.cadera_cm));
+            if (data.busto_cm) somatometrics.setValue('bustoCm', String(data.busto_cm));
+            if (data.brazo_cm) somatometrics.setValue('brazoCm', String(data.brazo_cm));
+            if (data.dosis_ml) somatometrics.setValue('dosisMl', String(data.dosis_ml));
           }
         }
       } catch (err) {
@@ -178,12 +248,19 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
 
   // Build live chart data: historical baseline + current visit entry if somatometrics are entered and consultation is NOT completed
   const livePayload = somatometrics.toPayload();
-  const currentPoint = (appointment.status !== 'COMPLETED' && (livePayload.peso_kg || livePayload.pa_sistolica)) ? {
+  const currentPoint = (appointment.status !== 'COMPLETED' && (livePayload.peso_kg || livePayload.pa_sistolica || livePayload.grasa_pct || livePayload.dosis_ml)) ? {
     fecha: new Date().toISOString().split('T')[0],
     peso: livePayload.peso_kg || null,
     imc: livePayload.imc || null,
     pa_sistolica: livePayload.pa_sistolica || null,
     pa_diastolica: livePayload.pa_diastolica || null,
+    musculo_pct: livePayload.musculo_pct || null,
+    grasa_pct: livePayload.grasa_pct || null,
+    cintura_cm: livePayload.cintura_cm || null,
+    cadera_cm: livePayload.cadera_cm || null,
+    busto_cm: livePayload.busto_cm || null,
+    brazo_cm: livePayload.brazo_cm || null,
+    dosis_ml: livePayload.dosis_ml || null,
   } : null;
   const chartData = currentPoint ? [...historyData, currentPoint] : historyData;
   
@@ -362,13 +439,21 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           id,
           fecha_hora,
           status,
+          tipo_consulta,
           motivo_consulta_cifrado,
           paciente_somatometria (
             peso_kg,
             talla_cm,
             imc,
             presion_sistolica,
-            presion_diastolica
+            presion_diastolica,
+            musculo_pct,
+            grasa_pct,
+            cintura_cm,
+            cadera_cm,
+            busto_cm,
+            brazo_cm,
+            dosis_ml
           )
         `)
         .eq('paciente_id', appointment.paciente_id)
@@ -437,13 +522,23 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   }, [fetchTriage, fetchPatientAppointments]);
 
   const handleSign = async (soapData: { subjetivo: string; objetivo: string; analisis: string; plan: string }) => {
-    // Validate somatometry before signing — warn doctor if fields are missing
+    // Validate somatometry before signing
     const payload = somatometrics.toPayload();
-    const somaIncompleta = !payload.peso_kg || !payload.talla_cm || !payload.pa_sistolica || !payload.pa_diastolica;
-    if (somaIncompleta) {
+    const pressureMissing = !payload.pa_sistolica || !payload.pa_diastolica;
+
+    if (pressureMissing) {
+      alert(
+        '⚠️ Presión Arterial requerida\n\n' +
+        'La presión arterial (Sistólica y Diastólica) es obligatoria y debe ser registrada antes de firmar.'
+      );
+      return;
+    }
+
+    const basicSomaMissing = !payload.peso_kg || !payload.talla_cm;
+    if (basicSomaMissing) {
       const confirmar = window.confirm(
         '⚠️ Somatometría incompleta\n\n' +
-        'Los campos de Peso, Talla y/o Presión Arterial están vacíos.\n\n' +
+        'Los campos de Peso y/o Talla están vacíos.\n\n' +
         'Si firmas sin estos datos, NO quedarán registrados en el expediente y no podrán recuperarse.\n\n' +
         '¿Deseas continuar y firmar sin somatometría?'
       );
@@ -601,11 +696,79 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
 
         {/* Right: Clinical workspace */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
-          {/* Somatometrics */}
-          <div className="card-glass" style={{ padding: '1.5rem' }}>
+          {/* Consulta Type Selector & Somatometrics */}
+          <div className="card-glass" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary)' }}>Tipo de Consulta:</span>
+              <div style={{
+                display: 'inline-flex',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '8px',
+                padding: '3px',
+                position: 'relative',
+                opacity: (appointment.status === 'COMPLETED' || isSigned) ? 0.65 : 1,
+                pointerEvents: (appointment.status === 'COMPLETED' || isSigned) ? 'none' : 'auto'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => handleTipoConsultaChange('General')}
+                  onMouseEnter={() => setHoveredTab('General')}
+                  onMouseLeave={() => setHoveredTab(null)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: tipoConsulta === 'General' 
+                      ? 'var(--color-secondary)' 
+                      : (hoveredTab === 'General' ? 'rgba(255, 255, 255, 0.08)' : 'transparent'),
+                    color: tipoConsulta === 'General' ? '#ffffff' : 'var(--color-primary)',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: tipoConsulta === 'General' ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                  }}
+                >
+                  🩺 Consulta General
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTipoConsultaChange('Control de Peso')}
+                  onMouseEnter={() => setHoveredTab('Control de Peso')}
+                  onMouseLeave={() => setHoveredTab(null)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: tipoConsulta === 'Control de Peso' 
+                      ? 'var(--color-secondary)' 
+                      : (hoveredTab === 'Control de Peso' ? 'rgba(255, 255, 255, 0.08)' : 'transparent'),
+                    color: tipoConsulta === 'Control de Peso' ? '#ffffff' : 'var(--color-primary)',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: tipoConsulta === 'Control de Peso' ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                  }}
+                >
+                  ⚖️ Control de Peso
+                </button>
+              </div>
+            </div>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '4px 0' }} />
             <SomatometricsForm 
               externalHook={somatometrics} 
               readOnly={appointment.status === 'COMPLETED' || isSigned} 
+              tipoConsulta={tipoConsulta}
             />
           </div>
 
@@ -814,6 +977,19 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                             {formattedDate}
                           </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {appItem.tipo_consulta && (
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                background: appItem.tipo_consulta === 'Control de Peso' ? 'rgba(20, 184, 166, 0.08)' : 'rgba(148, 163, 184, 0.1)',
+                                color: appItem.tipo_consulta === 'Control de Peso' ? '#0f766e' : 'var(--color-primary)',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase'
+                              }}>
+                                {appItem.tipo_consulta}
+                              </span>
+                            )}
                             <span style={{
                               padding: '3px 8px',
                               borderRadius: '4px',
@@ -868,11 +1044,21 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                               
                               if (!soma) return null;
 
+                              const hasAntropometria = soma.grasa_pct != null || 
+                                                       soma.musculo_pct != null || 
+                                                       soma.cintura_cm != null || 
+                                                       soma.cadera_cm != null || 
+                                                       soma.busto_cm != null || 
+                                                       soma.brazo_cm != null;
+                              const hasTratamiento = soma.dosis_ml != null;
+
                               return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-secondary)' }}>
                                     ⚖️ Somatometría y Signos Vitales
                                   </span>
+                                  
+                                  {/* Fila 1: Básicos */}
                                   <div style={{ 
                                     display: 'grid', 
                                     gridTemplateColumns: 'repeat(4, 1fr)', 
@@ -903,6 +1089,72 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                                       <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.presion_sistolica && soma.presion_diastolica ? `${soma.presion_sistolica}/${soma.presion_diastolica}` : '--'}</span>
                                     </div>
                                   </div>
+
+                                  {/* Fila 2: Antropometría y Composición Corporal (Opcional) */}
+                                  {hasAntropometria && (
+                                    <div style={{ 
+                                      display: 'grid', 
+                                      gridTemplateColumns: 'repeat(auto-fit, minmax(75px, 1fr))', 
+                                      gap: '8px', 
+                                      background: 'rgba(255, 255, 255, 0.01)', 
+                                      padding: '8px 10px', 
+                                      borderRadius: '6px', 
+                                      border: '1px solid var(--color-border)'
+                                    }}>
+                                      {soma.grasa_pct != null && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>% Grasa</span>
+                                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.grasa_pct}%</span>
+                                        </div>
+                                      )}
+                                      {soma.musculo_pct != null && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>% Músculo</span>
+                                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.musculo_pct}%</span>
+                                        </div>
+                                      )}
+                                      {soma.cintura_cm != null && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>Cintura</span>
+                                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.cintura_cm} cm</span>
+                                        </div>
+                                      )}
+                                      {soma.cadera_cm != null && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>Cadera</span>
+                                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.cadera_cm} cm</span>
+                                        </div>
+                                      )}
+                                      {soma.busto_cm != null && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>Busto</span>
+                                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.busto_cm} cm</span>
+                                        </div>
+                                      )}
+                                      {soma.brazo_cm != null && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary)', opacity: 0.5, textTransform: 'uppercase' }}>Brazo</span>
+                                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>{soma.brazo_cm} cm</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Fila 3: Intervención / Tratamiento (Opcional) */}
+                                  {hasTratamiento && (
+                                    <div style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '8px', 
+                                      background: 'rgba(20, 184, 166, 0.08)', 
+                                      padding: '6px 10px', 
+                                      borderRadius: '6px', 
+                                      border: '1px solid rgba(20, 184, 166, 0.2)'
+                                    }}>
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#0f766e', textTransform: 'uppercase' }}>Dosis Aplicada:</span>
+                                      <strong style={{ fontSize: '0.8rem', color: '#0f766e' }}>{soma.dosis_ml} ml</strong>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })()}

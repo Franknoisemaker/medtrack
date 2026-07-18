@@ -129,8 +129,44 @@ serve(async (req: Request) => {
 
     // Persist somatometria if provided
     if (somatometria_json) {
-      const { peso_kg, talla_cm, imc, pa_sistolica, pa_diastolica } = somatometria_json;
+      console.log('sign-note: somatometria_json payload:', JSON.stringify(somatometria_json));
+      const {
+        peso_kg,
+        talla_cm,
+        imc,
+        pa_sistolica,
+        pa_diastolica,
+        musculo_pct,
+        grasa_pct,
+        cintura_cm,
+        cadera_cm,
+        busto_cm,
+        brazo_cm,
+        dosis_ml,
+      } = somatometria_json;
       if (peso_kg && talla_cm && pa_sistolica && pa_diastolica) {
+        // Backend self-healing: if talla_cm is entered in meters (e.g. 1.7), convert to cm
+        let healedTalla = talla_cm;
+        let healedImc = imc;
+
+        if (talla_cm > 0 && talla_cm < 3) {
+          healedTalla = talla_cm * 100;
+          if (peso_kg > 0) {
+            const tallaM = healedTalla / 100;
+            healedImc = peso_kg / (tallaM * tallaM);
+          }
+        }
+
+        // Clamp and format IMC to prevent any potential numeric overflow (< 10^3)
+        if (healedImc !== null && healedImc !== undefined) {
+          const parsed = typeof healedImc === 'string' ? parseFloat(healedImc) : healedImc;
+          if (!isNaN(parsed)) {
+            healedImc = Math.min(999.9, Math.max(0, Math.round(parsed * 10) / 10));
+          } else {
+            healedImc = null;
+          }
+        }
+
         // Delete any existing somatometria for this consultation to prevent duplicates
         await supabase
           .from('paciente_somatometria')
@@ -143,10 +179,17 @@ serve(async (req: Request) => {
           .insert({
             consulta_id,
             peso_kg,
-            talla_cm: Math.round(talla_cm),
+            talla_cm: Math.round(healedTalla),
             presion_sistolica: pa_sistolica,
             presion_diastolica: pa_diastolica,
-            imc,
+            imc: healedImc,
+            musculo_pct: musculo_pct || null,
+            grasa_pct: grasa_pct || null,
+            cintura_cm: cintura_cm || null,
+            cadera_cm: cadera_cm || null,
+            busto_cm: busto_cm || null,
+            brazo_cm: brazo_cm || null,
+            dosis_ml: dosis_ml || null,
           });
 
         if (somaErr) {

@@ -1,0 +1,228 @@
+# MedTrack — Backup Automático de Base de Datos de Producción
+#
+# CUÁNDO SE EJECUTA:
+#   • Automático: todos los días a las 02:00 UTC (20:00 CST / 21:00 EST)
+#   • Manual: vía workflow_dispatch desde GitHub Actions
+#
+# QUÉ HACE:
+#   1. Toma un snapshot lógico completo (pg_dump) de la BD de producción
+#   2. Comprime el dump con gzip
+#   3. Lo sube como artifact de GitHub (retenido 90 días)
+#   4. [Opcional] Lo sube también a Cloudflare R2 para retención larga
+#
+# SECRETS REQUERIDOS (ya existen en el proyecto):
+#   • SUPABASE_ACCESS_TOKEN
+#   • SUPABASE_PROJECT_REF_PRODUCTION
+#   • SUPABASE_DB_PASSWORD_PRODUCTION
+#   • VITE_SUPABASE_URL_PROD  (para extraer el host de la BD)
+#   • R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME
+#     (solo si se habilita el upload a R2)
+
+name: DB — Backup Automático Producción
+
+on:
+  schedule:
+    # Cada día a las 02:00 UTC  →  20:00 CST  |  21:00 EST
+    - cron: '0 2 * * *'
+
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Motivo del backup manual (ej: antes de migración)'
+        required: false
+        default: 'Backup manual solicitado'
+      upload_r2:
+        description: '¿Subir también a Cloudflare R2?'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Backup — Producción
+    runs-on: ubuntu-latest
+    environment: production   # requiere la misma protección que el deploy
+
+    env:
+      BACKUP_TIMESTAMP: ''    # se setea en el primer step
+
+    steps:
+      # ── 0. Contexto ───────────────────────────────────────────────────────
+      - name: Definir timestamp del backup
+        id: ts
+        run: |
+          TS=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
+          echo "BACKUP_TIMESTAMP=${TS}" >> $GITHUB_ENV
+          echo "timestamp=${TS}" >> $GITHUB_OUTPUT
+          echo "📅 Backup timestamp: ${TS}"
+
+      # ── 1. Checkout (necesario para Supabase CLI) ─────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Instalar Supabase CLI ──────────────────────────────────────────
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # ── 3. Instalar cliente PostgreSQL (para pg_dump) ─────────────────────
+      - name: Instalar postgresql-client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      # ── 4. Vincular proyecto de producción ───────────────────────────────
+      - name: Link proyecto Supabase (producción)
+        working-directory: expediente-medico-app
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF_PRODUCTION }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PRODUCTION }}
+        run: |
+          supabase link \
+            --project-ref "${PROJECT_REF}" \
+            --password "${DB_PASSWORD}"
+
+      # ── 5. Ejecutar pg_dump ───────────────────────────────────────────────
+      #
+      # Supabase expone la BD en:
+      #   Host:  db.<PROJECT_REF>.supabase.co
+      #   Port:  5432
+      #   User:  postgres
+      #   DB:    postgres
+      #
+      - name: Ejecutar pg_dump (dump lógico completo)
+        id: dump
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PRODUCTION }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF_PRODUCTION }}
+        run: |
+          mkdir -p /tmp/medtrack-backup
+
+          DUMP_FILE="/tmp/medtrack-backup/medtrack_prod_${BACKUP_TIMESTAMP}.sql"
+          DUMP_GZ="${DUMP_FILE}.gz"
+
+          echo "🗄️  Iniciando pg_dump..."
+          pg_dump \
+            --host="db.${PROJECT_REF}.supabase.co" \
+            --port=5432 \
+            --username=postgres \
+            --dbname=postgres \
+            --format=plain \
+            --no-password \
+            --clean \
+            --if-exists \
+            --no-acl \
+            --no-owner \
+            --verbose \
+            > "${DUMP_FILE}"
+
+          echo "✅ pg_dump completado. Comprimiendo..."
+          gzip -9 "${DUMP_FILE}"
+
+          # Verificar integridad del archivo
+          FILESIZE=$(stat -c%s "${DUMP_GZ}")
+          echo "📦 Tamaño comprimido: $(numfmt --to=iec ${FILESIZE})"
+
+          if [ "${FILESIZE}" -lt 1024 ]; then
+            echo "❌ ALERTA: El archivo de backup parece vacío o muy pequeño (${FILESIZE} bytes)"
+            exit 1
+          fi
+
+          echo "dump_gz=${DUMP_GZ}" >> $GITHUB_OUTPUT
+          echo "dump_filename=medtrack_prod_${BACKUP_TIMESTAMP}.sql.gz" >> $GITHUB_OUTPUT
+          echo "filesize=${FILESIZE}" >> $GITHUB_OUTPUT
+
+      # ── 6. Subir como artifact de GitHub (retención: 90 días) ─────────────
+      - name: Subir backup como GitHub Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: medtrack-db-backup-${{ steps.ts.outputs.timestamp }}
+          path: /tmp/medtrack-backup/*.sql.gz
+          retention-days: 90
+          if-no-files-found: error
+
+      # ── 7. [OPCIONAL] Subir a Cloudflare R2 ──────────────────────────────
+      #    Activo solo en trigger manual si upload_r2=true,
+      #    o siempre en el cron de los domingos (semanal long-term).
+      - name: Instalar rclone (para subida a R2)
+        if: >
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule' && startsWith(steps.ts.outputs.timestamp, '2') )
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Configurar rclone para Cloudflare R2
+        if: >
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule')
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${R2_ACCESS_KEY_ID}
+          secret_access_key = ${R2_SECRET_ACCESS_KEY}
+          endpoint = https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com
+          acl = private
+          EOF
+
+      - name: Subir backup a Cloudflare R2
+        if: >
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule')
+        env:
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          YEAR=$(date -u +"%Y")
+          MONTH=$(date -u +"%m")
+          DEST="r2:${R2_BUCKET_NAME}/database-backups/${YEAR}/${MONTH}/"
+
+          echo "☁️  Subiendo a R2: ${DEST}"
+          rclone copy /tmp/medtrack-backup/ "${DEST}" \
+            --s3-no-check-bucket \
+            --progress
+
+          echo "✅ Backup subido correctamente a R2"
+
+      # ── 8. Limpiar dumps de R2 con más de 1 año ───────────────────────────
+      - name: Limpiar backups de R2 con más de 365 días
+        if: >
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule')
+        env:
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          echo "🧹 Eliminando backups de R2 con más de 365 días..."
+          rclone delete "r2:${R2_BUCKET_NAME}/database-backups/" \
+            --min-age 365d \
+            --s3-no-check-bucket
+          echo "✅ Limpieza completada"
+
+      # ── 9. Resumen ────────────────────────────────────────────────────────
+      - name: Resumen del backup
+        if: always()
+        run: |
+          echo "## 📦 Resumen del Backup de Base de Datos" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Timestamp** | \`${BACKUP_TIMESTAMP}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Ambiente** | Producción |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Trigger** | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Archivo** | \`${{ steps.dump.outputs.dump_filename }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Tamaño** | \`$(numfmt --to=iec ${{ steps.dump.outputs.filesize || '0' }} 2>/dev/null || echo 'N/A')\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Retención GitHub** | 90 días |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "| **Motivo** | ${{ github.event.inputs.reason }} |" >> $GITHUB_STEP_SUMMARY
+          fi

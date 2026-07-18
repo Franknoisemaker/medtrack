@@ -221,8 +221,16 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
     fireEvent.change(analisisText, { target: { value: 'Migraña' } });
     fireEvent.change(planText, { target: { value: 'Paracetamol' } });
 
+    const sistolicaInput = screen.getByPlaceholderText('Sistólica');
+    const diastolicaInput = screen.getByPlaceholderText('Diastólica');
+    fireEvent.change(sistolicaInput, { target: { value: '120' } });
+    fireEvent.change(diastolicaInput, { target: { value: '80' } });
+
     const signButton = screen.getByRole('button', { name: /Guardar y Firmar Nota SOAP/i });
     expect(signButton).toBeEnabled();
+
+    // Mock window.alert to prevent blocking
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 
     fireEvent.click(signButton);
 
@@ -235,6 +243,7 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
 
     expect(screen.queryByPlaceholderText(/Síntomas referidos por el paciente/i)).toBeNull();
 
+    alertSpy.mockRestore();
     globalFetchSpy.mockRestore();
   });
 });
