@@ -62,8 +62,9 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             setTipoConsulta(data.tipo_consulta as 'General' | 'Control de Peso');
           }
         }
-      } catch (err) {
-        console.error('Error loading consultation type:', err);
+      } catch {
+        // Silently fallback to 'General' if tipo_consulta column does not exist yet
+        setTipoConsulta('General');
       }
     }
     loadConsultationType();
@@ -116,7 +117,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         }
       } else {
         // Real-time production database query joining consultas and paciente_somatometria
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('consultas')
           .select(`
             id,
@@ -140,7 +141,29 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           .eq('status', 'COMPLETED')
           .order('fecha_hora', { ascending: true });
 
-        if (error) throw error;
+        // Fallback: if extended somatometrics columns do not exist in DB schema yet
+        if (error) {
+          console.warn('[PatientRecord] fetchHistory extended query failed, retrying with core columns fallback:', error);
+          const fallbackRes = await supabase
+            .from('consultas')
+            .select(`
+              id,
+              fecha_hora,
+              paciente_somatometria (
+                peso_kg,
+                talla_cm,
+                imc,
+                presion_sistolica,
+                presion_diastolica
+              )
+            `)
+            .eq('paciente_id', appointment.paciente_id)
+            .eq('status', 'COMPLETED')
+            .order('fecha_hora', { ascending: true });
+
+          data = fallbackRes.data;
+          if (fallbackRes.error) throw fallbackRes.error;
+        }
 
         const historicalPoints = data
           ?.filter((c: any) => c.paciente_somatometria && (Array.isArray(c.paciente_somatometria) ? c.paciente_somatometria.length > 0 : c.paciente_somatometria))
@@ -434,7 +457,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     if (!appointment.paciente_id) return;
     setIsLoadingAppointments(true);
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('consultas')
         .select(`
           id,
@@ -460,7 +483,31 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         .eq('paciente_id', appointment.paciente_id)
         .order('fecha_hora', { ascending: false });
 
-      if (error) throw error;
+      // Fallback: if tipo_consulta or new somatometrics columns do not exist in DB schema yet
+      if (error) {
+        console.warn('[PatientRecord] fetchPatientAppointments extended query failed, retrying with core columns fallback:', error);
+        const fallbackRes = await supabase
+          .from('consultas')
+          .select(`
+            id,
+            fecha_hora,
+            status,
+            motivo_consulta_cifrado,
+            paciente_somatometria (
+              peso_kg,
+              talla_cm,
+              imc,
+              presion_sistolica,
+              presion_diastolica
+            )
+          `)
+          .eq('paciente_id', appointment.paciente_id)
+          .order('fecha_hora', { ascending: false });
+
+        data = fallbackRes.data;
+        if (fallbackRes.error) throw fallbackRes.error;
+      }
+
       setPatientAppointments(data || []);
     } catch (err) {
       console.error('Error fetching patient appointments:', err);
