@@ -469,6 +469,18 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     }
   }, [appointment.paciente_id]);
 
+  // Auto-switch timeline tab to 'history' if current consultation is COMPLETED or if patient has no future pending appointments
+  useEffect(() => {
+    if (appointment.status === 'COMPLETED') {
+      setTimelineTab('history');
+    } else if (patientAppointments.length > 0) {
+      const hasFuture = patientAppointments.some(a => a.status === 'PENDING_ONBOARDING' || a.status === 'ACTIVE');
+      if (!hasFuture) {
+        setTimelineTab('history');
+      }
+    }
+  }, [patientAppointments, appointment.status]);
+
   const fetchTriage = useCallback(async () => {
     setIsLoadingTriage(true);
     try {

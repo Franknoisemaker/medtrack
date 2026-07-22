@@ -64,6 +64,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [successData, setSuccessData] = useState<{ token: string | null; url: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [icsDownloaded, setIcsDownloaded] = useState(false);
 
   // Validate form inline
   const validateForm = (): boolean => {
