@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
+import { downloadICS } from '../../utils/icsGenerator';
+import type { ICSEvent } from '../../utils/icsGenerator';
+import { CalendarButton } from './CalendarButton';
 
 export interface Appointment {
   id: string;
@@ -448,113 +451,171 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
         </p>
 
         {esRecurrente ? (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            maxHeight: '180px',
-            overflowY: 'auto',
-            padding: '12px',
-            background: 'var(--color-bg)',
-            borderRadius: '8px',
-            border: '1px solid var(--color-border)'
-          }}>
-            {createdAppointments.map((app, idx) => (
-              <div key={idx} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 12px',
-                background: 'var(--color-surface-glass)',
-                borderRadius: '6px',
-                fontSize: '0.85rem',
-                borderLeft: `3px solid ${app.status === 'ACTIVE' ? '#10b981' : '#3b82f6'}`,
-                borderTop: '1px solid var(--color-border)',
-                borderRight: '1px solid var(--color-border)',
-                borderBottom: '1px solid var(--color-border)',
-                gap: '8px'
-              }}>
-                <span style={{ fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>#{idx + 1}</span>
-                <span style={{ color: 'var(--color-primary)', opacity: 0.8, fontSize: '0.78rem', flex: 1, textAlign: 'left', fontWeight: 500 }}>
-                  {new Date(app.fecha_hora).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <button
-                  onClick={() => {
-                    onAppointmentCreated({
-                      id: crypto.randomUUID(),
-                      nombre,
-                      telefono,
-                      email: email || undefined,
-                      fecha_hora: app.fecha_hora,
-                      status: app.status
-                    });
-                  }}
-                  style={{
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    background: 'var(--color-secondary)',
-                    color: '#ffffff',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    border: 'none',
-                    cursor: 'pointer',
-                    opacity: 0.9,
-                    transition: 'opacity 0.2s',
-                    whiteSpace: 'nowrap'
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
-                  onMouseOut={(e) => (e.currentTarget.style.opacity = '0.9')}
-                >
-                  📅 Ver Día
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : !isSeguimiento && (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <button
-                onClick={handleCopyLink}
-                style={{
-                  padding: '12px',
-                  borderRadius: 'var(--radius-base)',
-                  background: copied ? 'var(--color-success, #10b981)' : 'var(--color-primary)',
-                  color: '#ffffff',
-                  fontWeight: 600,
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              maxHeight: '180px',
+              overflowY: 'auto',
+              padding: '12px',
+              background: 'var(--color-bg)',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)'
+            }}>
+              {createdAppointments.map((app, idx) => (
+                <div key={idx} style={{
                   display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'background 0.2s ease'
-                }}
-              >
-                {copied ? '¡Mensaje Copiado! 📋' : 'Copiar mensaje 🔗'}
-              </button>
-
-              <a
-                href={getWhatsAppLink()}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  padding: '12px',
-                  borderRadius: 'var(--radius-base)',
-                  background: '#25D366',
-                  color: '#ffffff',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  textDecoration: 'none',
-                  transition: 'background 0.2s ease'
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.background = '#20ba5a')}
-                onMouseOut={(e) => (e.currentTarget.style.background = '#25D366')}
-              >
-                Compartir por WhatsApp 💬
-              </a>
+                  padding: '8px 12px',
+                  background: 'var(--color-surface-glass)',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  borderLeft: `3px solid ${app.status === 'ACTIVE' ? '#10b981' : '#3b82f6'}`,
+                  borderTop: '1px solid var(--color-border)',
+                  borderRight: '1px solid var(--color-border)',
+                  borderBottom: '1px solid var(--color-border)',
+                  gap: '8px'
+                }}>
+                  <span style={{ fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>#{idx + 1}</span>
+                  <span style={{ color: 'var(--color-primary)', opacity: 0.8, fontSize: '0.78rem', flex: 1, textAlign: 'left', fontWeight: 500 }}>
+                    {new Date(app.fecha_hora).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <button
+                    onClick={() => {
+                      onAppointmentCreated({
+                        id: crypto.randomUUID(),
+                        nombre,
+                        telefono,
+                        email: email || undefined,
+                        fecha_hora: app.fecha_hora,
+                        status: app.status
+                      });
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      background: 'var(--color-secondary)',
+                      color: '#ffffff',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      border: 'none',
+                      cursor: 'pointer',
+                      opacity: 0.9,
+                      transition: 'opacity 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+                    onMouseOut={(e) => (e.currentTarget.style.opacity = '0.9')}
+                  >
+                    📅 Ver Día
+                  </button>
+                </div>
+              ))}
             </div>
-          </>
+
+            {/* Download ALL as a single .ics file */}
+            <button
+              onClick={() => {
+                const events: ICSEvent[] = createdAppointments.map((app, idx) => {
+                  const dtstart = new Date(app.fecha_hora);
+                  const dtend = new Date(dtstart.getTime() + 60 * 60 * 1000);
+                  return {
+                    uid: `recurrent-${idx}-${Date.now()}@medtrack.mx`,
+                    summary: `Consulta — ${nombre}`,
+                    description: `Consulta recurrente #${idx + 1} para ${nombre}.`,
+                    dtstart,
+                    dtend,
+                    location: 'Consultorio Médico',
+                  };
+                });
+                const safeFilename = `citas-${nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}.ics`;
+                downloadICS(events, safeFilename);
+                setIcsDownloaded(true);
+                setTimeout(() => setIcsDownloaded(false), 3000);
+              }}
+              style={{
+                padding: '11px',
+                borderRadius: 'var(--radius-base)',
+                background: icsDownloaded ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.1)',
+                border: `1px solid ${icsDownloaded ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.35)'}`,
+                color: icsDownloaded ? '#10b981' : '#818cf8',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.25s ease',
+              }}
+            >
+              {icsDownloaded ? '✅ Descargado' : '📅 Agregar todas al Calendario (.ics)'}
+            </button>
+          </div>
+        ) : (
+          // CalendarButton always visible — for seguimiento we skip WhatsApp/copy but always show calendar
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+            {!isSeguimiento && (
+              <>
+                <button
+                  onClick={handleCopyLink}
+                  style={{
+                    padding: '12px',
+                    borderRadius: 'var(--radius-base)',
+                    background: copied ? 'var(--color-success, #10b981)' : 'var(--color-primary)',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'background 0.2s ease'
+                  }}
+                >
+                  {copied ? '¡Mensaje Copiado! 📋' : 'Copiar mensaje 🔗'}
+                </button>
+
+                <a
+                  href={getWhatsAppLink()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '12px',
+                    borderRadius: 'var(--radius-base)',
+                    background: '#25D366',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    textDecoration: 'none',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.background = '#20ba5a')}
+                  onMouseOut={(e) => (e.currentTarget.style.background = '#25D366')}
+                >
+                  Compartir por WhatsApp 💬
+                </a>
+              </>
+            )}
+
+            {/* ── Smart Calendar Button — Google / Outlook / .ics ── */}
+            {(() => {
+              const rawDate = fechaHora || createdAppointments[0]?.fecha_hora;
+              if (!rawDate) return null;
+              return (
+                <CalendarButton
+                  patientName={nombre}
+                  appointmentType={isSeguimiento ? 'Consulta de Seguimiento' : 'Consulta General'}
+                  dtstart={new Date(rawDate)}
+                  durationMinutes={60}
+                />
+              );
+            })()}
+          </div>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>

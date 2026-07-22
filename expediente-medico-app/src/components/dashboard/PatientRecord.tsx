@@ -11,6 +11,7 @@ import { useSomatometrics } from '../../hooks/useSomatometrics';
 import { NewAppointmentForm } from './NewAppointmentForm';
 import type { Appointment } from './NewAppointmentForm';
 import { HistoricalNoteModal } from './HistoricalNoteModal';
+import { CalendarButton } from './CalendarButton';
 
 interface PatientRecordProps {
   appointment: Appointment;
@@ -1001,6 +1002,15 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                             }}>
                               {statusText}
                             </span>
+                            {/* ── Agregar al Calendario ── */}
+                            <CalendarButton
+                              compact
+                              stopPropagation
+                              patientName={appItem.nombre}
+                              appointmentType={appItem.tipo_consulta || 'Consulta General'}
+                              dtstart={new Date(appItem.fecha_hora)}
+                              durationMinutes={60}
+                            />
                             {isHistorical && (
                               <span style={{
                                 fontSize: '0.7rem',
