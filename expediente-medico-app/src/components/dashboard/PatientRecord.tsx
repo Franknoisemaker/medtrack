@@ -72,6 +72,9 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
 
   const handleTipoConsultaChange = async (newType: 'General' | 'Control de Peso') => {
     setTipoConsulta(newType);
+    if (appointment.status === 'COMPLETED' || isSigned) {
+      return;
+    }
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
       const isMock = supabaseUrl.includes('your-project-id');
@@ -261,6 +264,19 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             if (data.busto_cm) somatometrics.setValue('bustoCm', String(data.busto_cm));
             if (data.brazo_cm) somatometrics.setValue('brazoCm', String(data.brazo_cm));
             if (data.dosis_ml) somatometrics.setValue('dosisMl', String(data.dosis_ml));
+
+            const hasWeightControlData = 
+              data.musculo_pct != null || 
+              data.grasa_pct != null || 
+              data.cintura_cm != null || 
+              data.cadera_cm != null || 
+              data.busto_cm != null || 
+              data.brazo_cm != null || 
+              data.dosis_ml != null;
+
+            if (hasWeightControlData) {
+              setTipoConsulta('Control de Peso');
+            }
           }
         }
       } catch (err) {
@@ -767,8 +783,8 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                 borderRadius: '8px',
                 padding: '3px',
                 position: 'relative',
-                opacity: (appointment.status === 'COMPLETED' || isSigned) ? 0.65 : 1,
-                pointerEvents: (appointment.status === 'COMPLETED' || isSigned) ? 'none' : 'auto'
+                opacity: 1,
+                pointerEvents: 'auto'
               }}>
                 <button
                   type="button"

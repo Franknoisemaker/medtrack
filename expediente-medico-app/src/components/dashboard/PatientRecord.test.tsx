@@ -246,4 +246,31 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
     alertSpy.mockRestore();
     globalFetchSpy.mockRestore();
   });
+
+  it('allows clicking tabs in historical/completed consultations and auto-detects weight control data', async () => {
+    const historicalAppointment = {
+      ...mockAppointment,
+      id: 'completed-consulta-uuid-456',
+      status: 'COMPLETED' as const,
+    };
+
+    render(
+      <PatientRecord
+        appointment={historicalAppointment}
+        onBack={() => {}}
+      />
+    );
+
+    // Verify Control de Peso tab button is present and clickable
+    const pesoTabButton = screen.getByRole('button', { name: /⚖️ Control de Peso/i });
+    expect(pesoTabButton).toBeDefined();
+
+    // Fire click to switch tab
+    fireEvent.click(pesoTabButton);
+
+    // Verify weight control fields card (% Grasa) becomes visible upon tab switch
+    await waitFor(() => {
+      expect(screen.getByText(/Composición Corporal y Silueta/i)).toBeDefined();
+    });
+  });
 });
