@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 
-interface TriageData {
+export interface TriageData {
   alergias?: string | null;
   medicamentos?: string | null;
   padecimientos_cifrado?: string | null;
   motivo_consulta_cifrado?: string | null;
+  fecha_nacimiento?: string | null;
 }
 
 interface StickyTriageProps {
@@ -14,6 +15,19 @@ interface StickyTriageProps {
   triage: TriageData | null;
   isLoading?: boolean;
   onTriageSaved?: () => void;
+}
+
+export function calculateAge(birthdateStr?: string | null): number | null {
+  if (!birthdateStr || birthdateStr === '1970-01-01') return null;
+  const today = new Date();
+  const birthDate = new Date(birthdateStr);
+  if (isNaN(birthDate.getTime())) return null;
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age >= 0 ? age : null;
 }
 
 function TriageRow({
@@ -78,6 +92,7 @@ export function StickyTriage({ patientName, consultaId, triage, isLoading = fals
   const [medicamentos, setMedicamentos] = useState('');
   const [padecimientos, setPadecimientos] = useState('');
   const [motivoConsulta, setMotivoConsulta] = useState('');
+  const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync state with triage when received
@@ -87,6 +102,9 @@ export function StickyTriage({ patientName, consultaId, triage, isLoading = fals
       setMedicamentos(triage.medicamentos || '');
       setPadecimientos(triage.padecimientos_cifrado || '');
       setMotivoConsulta(triage.motivo_consulta_cifrado || '');
+      if (triage.fecha_nacimiento) {
+        setFechaNacimiento(triage.fecha_nacimiento);
+      }
     } else {
       setAlergias('');
       setMedicamentos('');
@@ -94,6 +112,30 @@ export function StickyTriage({ patientName, consultaId, triage, isLoading = fals
       setMotivoConsulta('');
     }
   }, [triage]);
+
+  // Fetch fecha_nacimiento directly from pacientes table
+  useEffect(() => {
+    if (!consultaId) return;
+    let isMounted = true;
+    const fetchPatientBirthdate = async () => {
+      try {
+        const { data: consultaData } = await supabase
+          .from('consultas')
+          .select('pacientes ( fecha_nacimiento )')
+          .eq('id', consultaId)
+          .maybeSingle();
+
+        const rawBirthdate = (consultaData as any)?.pacientes?.fecha_nacimiento;
+        if (isMounted && rawBirthdate) {
+          setFechaNacimiento(rawBirthdate);
+        }
+      } catch (err) {
+        console.error('Error fetching patient birthdate:', err);
+      }
+    };
+    fetchPatientBirthdate();
+    return () => { isMounted = false; };
+  }, [consultaId]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -116,10 +158,11 @@ export function StickyTriage({ patientName, consultaId, triage, isLoading = fals
       const encryptedPadecimientos = padecimientos.trim() ? `[PGP_ENCRYPTED]_${padecimientos.trim()}` : null;
       const encryptedMotivo = motivoConsulta.trim() ? `[PGP_ENCRYPTED]_${motivoConsulta.trim()}` : null;
 
-      // 3. Update pacientes clinical record details
+      // 3. Update pacientes clinical record details including fecha_nacimiento
       const { error: pacienteUpdateErr } = await supabase
         .from('pacientes')
         .update({
+          fecha_nacimiento: fechaNacimiento || '1970-01-01',
           alergias_cifrado: encryptedAlergias,
           medicamentos_cifrado: encryptedMedicamentos,
           padecimientos_cifrado: encryptedPadecimientos
@@ -176,6 +219,28 @@ export function StickyTriage({ patientName, consultaId, triage, isLoading = fals
             <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-primary)', lineHeight: 1.3 }}>
               {patientName}
             </div>
+            {/* Age Badge - Always displayed */}
+            <div style={{
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              color: 'var(--color-secondary)',
+              marginTop: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}>
+              <span>🎂</span>
+              <span>
+                {calculateAge(fechaNacimiento) !== null
+                  ? `${calculateAge(fechaNacimiento)} años`
+                  : 'Edad no registrada'}
+              </span>
+              {fechaNacimiento && fechaNacimiento !== '1970-01-01' && (
+                <span style={{ fontSize: '0.7rem', opacity: 0.65, color: 'var(--color-primary)', fontWeight: 400 }}>
+                  ({fechaNacimiento})
+                </span>
+              )}
+            </div>
           </div>
           {!isLoading && !isEditing && (
             <button
@@ -213,6 +278,34 @@ export function StickyTriage({ patientName, consultaId, triage, isLoading = fals
         ) : isEditing ? (
           /* Interactive Clinical Fields Form */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            {/* Editable Birthdate Input Field */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-secondary)', textTransform: 'uppercase' }}>
+                🎂 Fecha de Nacimiento
+              </label>
+              <input
+                type="date"
+                value={fechaNacimiento}
+                onChange={(e) => setFechaNacimiento(e.target.value)}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-primary)',
+                  fontSize: '0.8rem',
+                  outline: 'none',
+                }}
+              />
+              {fechaNacimiento && (
+                <div style={{ fontSize: '0.72rem', color: 'var(--color-primary)', opacity: 0.75, fontWeight: 500 }}>
+                  {calculateAge(fechaNacimiento) !== null
+                    ? `Edad calculada: ${calculateAge(fechaNacimiento)} años`
+                    : 'Fecha no registrada'}
+                </div>
+              )}
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
               <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#dc2626', textTransform: 'uppercase' }}>🚨 Alergias</label>
               <input

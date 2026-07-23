@@ -105,4 +105,21 @@ describe('StickyTriage Component', () => {
 
     expect(screen.getByText(/NOM-024/i)).toBeDefined();
   });
+
+  it('displays age calculated from birthdate continuously', () => {
+    const triageWithBirthdate = {
+      ...mockTriageData,
+      fecha_nacimiento: '1990-05-15',
+    };
+
+    render(
+      <StickyTriage
+        patientName={mockPatientName}
+        consultaId={mockConsultaId}
+        triage={triageWithBirthdate}
+      />
+    );
+
+    expect(screen.getByText(/años/i)).toBeDefined();
+  });
 });

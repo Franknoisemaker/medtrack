@@ -144,14 +144,15 @@ serve(async (req: Request) => {
         brazo_cm,
         dosis_ml,
       } = somatometria_json;
-      if (peso_kg && talla_cm && pa_sistolica && pa_diastolica) {
+      const hasAnySomaData = peso_kg || talla_cm || pa_sistolica || pa_diastolica || musculo_pct || grasa_pct || cintura_cm || cadera_cm || busto_cm || brazo_cm || dosis_ml;
+      if (hasAnySomaData) {
         // Backend self-healing: if talla_cm is entered in meters (e.g. 1.7), convert to cm
-        let healedTalla = talla_cm;
-        let healedImc = imc;
+        let healedTalla = talla_cm || null;
+        let healedImc = imc || null;
 
-        if (talla_cm > 0 && talla_cm < 3) {
+        if (talla_cm && talla_cm > 0 && talla_cm < 3) {
           healedTalla = talla_cm * 100;
-          if (peso_kg > 0) {
+          if (peso_kg && peso_kg > 0) {
             const tallaM = healedTalla / 100;
             healedImc = peso_kg / (tallaM * tallaM);
           }
@@ -178,10 +179,10 @@ serve(async (req: Request) => {
           .from('paciente_somatometria')
           .insert({
             consulta_id,
-            peso_kg,
-            talla_cm: Math.round(healedTalla),
-            presion_sistolica: pa_sistolica,
-            presion_diastolica: pa_diastolica,
+            peso_kg: peso_kg || null,
+            talla_cm: healedTalla ? Math.round(healedTalla) : null,
+            presion_sistolica: pa_sistolica || null,
+            presion_diastolica: pa_diastolica || null,
             imc: healedImc,
             musculo_pct: musculo_pct || null,
             grasa_pct: grasa_pct || null,
