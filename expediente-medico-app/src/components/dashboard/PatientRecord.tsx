@@ -235,7 +235,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             somatometrics.setValue('paDiastolica', '80');
           } else {
             somatometrics.setValue('pesoKg', '');
-            somatometrics.setValue('tallaCm', '');
+            somatometrics.setValue('tallaCm', '170.0');
             somatometrics.setValue('paSistolica', '');
             somatometrics.setValue('paDiastolica', '');
           }
@@ -245,6 +245,13 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           somatometrics.setValue('tallaCm', '');
           somatometrics.setValue('paSistolica', '');
           somatometrics.setValue('paDiastolica', '');
+          somatometrics.setValue('musculoPct', '');
+          somatometrics.setValue('grasaPct', '');
+          somatometrics.setValue('cinturaCm', '');
+          somatometrics.setValue('caderaCm', '');
+          somatometrics.setValue('bustoCm', '');
+          somatometrics.setValue('brazoCm', '');
+          somatometrics.setValue('dosisMl', '');
 
           const { data, error } = await supabase
             .from('paciente_somatometria')
@@ -252,9 +259,35 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
             .eq('consulta_id', appointment.id)
             .maybeSingle();
 
+          let fetchedTalla = data?.talla_cm ? String(data.talla_cm) : '';
+
+          // If height is not recorded for this specific consultation yet,
+          // pre-fill with the patient's most recent previous recorded height across all consultations
+          if (!fetchedTalla && appointment.paciente_id) {
+            const { data: prevSoma } = await supabase
+              .from('paciente_somatometria')
+              .select(`
+                talla_cm,
+                consultas!inner ( paciente_id, fecha_hora )
+              `)
+              .eq('consultas.paciente_id', appointment.paciente_id)
+              .not('talla_cm', 'is', null)
+              .gt('talla_cm', 0)
+              .order('consultas(fecha_hora)', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (prevSoma && prevSoma.talla_cm) {
+              fetchedTalla = String(prevSoma.talla_cm);
+            }
+          }
+
+          if (fetchedTalla) {
+            somatometrics.setValue('tallaCm', fetchedTalla);
+          }
+
           if (data && !error) {
             if (data.peso_kg) somatometrics.setValue('pesoKg', String(data.peso_kg));
-            if (data.talla_cm) somatometrics.setValue('tallaCm', String(data.talla_cm));
             if (data.presion_sistolica) somatometrics.setValue('paSistolica', String(data.presion_sistolica));
             if (data.presion_diastolica) somatometrics.setValue('paDiastolica', String(data.presion_diastolica));
             if (data.musculo_pct) somatometrics.setValue('musculoPct', String(data.musculo_pct));
@@ -284,7 +317,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
       }
     }
     loadCurrentSomatometrics();
-  }, [appointment.id, appointment.status]);
+  }, [appointment.id, appointment.status, appointment.paciente_id]);
 
   // Build live chart data: historical baseline + current visit entry if somatometrics are entered and consultation is NOT completed
   const livePayload = somatometrics.toPayload();
