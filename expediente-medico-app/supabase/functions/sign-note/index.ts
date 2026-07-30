@@ -195,6 +195,14 @@ serve(async (req: Request) => {
 
         if (somaErr) {
           console.error('Error persisting paciente_somatometria:', JSON.stringify(somaErr));
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Error al guardar la somatometría. Verifica la configuración de la base de datos.',
+              debug: somaErr
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       }
     }
