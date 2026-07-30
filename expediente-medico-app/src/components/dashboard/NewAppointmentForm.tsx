@@ -198,7 +198,7 @@ export function NewAppointmentForm({ onAppointmentCreated, initialPaciente, onCl
         return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
       });
       return `Se programarán ${dates.length} citas: ${formatted.join(', ')}.`;
-    } catch (e) {
+    } catch (_e) {
       return '';
     }
   };

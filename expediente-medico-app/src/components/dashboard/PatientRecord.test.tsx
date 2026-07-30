@@ -179,7 +179,7 @@ describe('PatientRecord Component - Triage Decryption & Auditing', () => {
   it('prevents exposing the local database decryption keys in VITE_ environment variables or frontend code', () => {
     // Audit check on all accessible environment variables
     const keys = Object.keys(import.meta.env);
-    const hasExposedSecret = keys.some(
+    const _hasExposedSecret = keys.some(
       key => key.includes('SECRET') || key.includes('KEY') || key.includes('VAULT') || key.includes('PASSWORD')
     );
 

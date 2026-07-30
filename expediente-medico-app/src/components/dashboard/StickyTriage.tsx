@@ -17,6 +17,7 @@ interface StickyTriageProps {
   onTriageSaved?: () => void;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function calculateAge(birthdateStr?: string | null): number | null {
   if (!birthdateStr || birthdateStr === '1970-01-01') return null;
   const today = new Date();

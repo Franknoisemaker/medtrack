@@ -65,7 +65,7 @@ jobs:
 
       # ── 2. Instalar Supabase CLI ──────────────────────────────────────────
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v3
         with:
           version: latest
 
@@ -97,9 +97,12 @@ jobs:
       #
       - name: Ejecutar pg_dump (dump lógico completo)
         id: dump
+        working-directory: expediente-medico-app
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PRODUCTION }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF_PRODUCTION }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PGSSLMODE: require
         run: |
           mkdir -p /tmp/medtrack-backup
 
@@ -107,21 +110,25 @@ jobs:
           DUMP_GZ="${DUMP_FILE}.gz"
 
           echo "🗄️  Iniciando pg_dump..."
-          pg_dump \
-            --host="db.${PROJECT_REF}.supabase.co" \
-            --port=5432 \
-            --username=postgres \
-            --dbname=postgres \
+          DB_URL="postgresql://postgres:${PGPASSWORD}@db.${PROJECT_REF}.supabase.co:5432/postgres?sslmode=require"
+
+          if pg_dump \
+            --dbname="${DB_URL}" \
             --format=plain \
-            --no-password \
             --clean \
             --if-exists \
             --no-acl \
             --no-owner \
-            --verbose \
-            > "${DUMP_FILE}"
+            --file="${DUMP_FILE}" \
+            --verbose; then
+            echo "✅ pg_dump directo completado correctamente."
+          else
+            echo "⚠️ pg_dump directo falló. Intentando fallback con Supabase CLI db dump..."
+            supabase db dump --project-ref "${PROJECT_REF}" --password "${PGPASSWORD}" -f "${DUMP_FILE}" || \
+            supabase db dump --linked -f "${DUMP_FILE}"
+          fi
 
-          echo "✅ pg_dump completado. Comprimiendo..."
+          echo "✅ Dump completado. Comprimiendo..."
           gzip -9 "${DUMP_FILE}"
 
           # Verificar integridad del archivo
@@ -148,18 +155,20 @@ jobs:
 
       # ── 7. [OPCIONAL] Subir a Cloudflare R2 ──────────────────────────────
       #    Activo solo en trigger manual si upload_r2=true,
-      #    o siempre en el cron de los domingos (semanal long-term).
+      #    o siempre en el cron si existen las credenciales R2.
       - name: Instalar rclone (para subida a R2)
         if: >
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-          (github.event_name == 'schedule' && startsWith(steps.ts.outputs.timestamp, '2') )
+          secrets.R2_ACCOUNT_ID != '' &&
+          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+           (github.event_name == 'schedule'))
         run: |
           curl -fsSL https://rclone.org/install.sh | sudo bash
 
       - name: Configurar rclone para Cloudflare R2
         if: >
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-          (github.event_name == 'schedule')
+          secrets.R2_ACCOUNT_ID != '' &&
+          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+           (github.event_name == 'schedule'))
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -178,8 +187,9 @@ jobs:
 
       - name: Subir backup a Cloudflare R2
         if: >
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-          (github.event_name == 'schedule')
+          secrets.R2_ACCOUNT_ID != '' &&
+          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+           (github.event_name == 'schedule'))
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
@@ -197,8 +207,9 @@ jobs:
       # ── 8. Limpiar dumps de R2 con más de 1 año ───────────────────────────
       - name: Limpiar backups de R2 con más de 365 días
         if: >
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-          (github.event_name == 'schedule')
+          secrets.R2_ACCOUNT_ID != '' &&
+          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+           (github.event_name == 'schedule'))
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |

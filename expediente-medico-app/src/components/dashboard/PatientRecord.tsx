@@ -25,10 +25,7 @@ const MOCK_HISTORY = [
   { fecha: '2026-04-20', peso: 80.2, imc: 24.8, pa_sistolica: 128, pa_diastolica: 84 },
 ];
 
-const MOCK_FILES: ClinicalFile[] = [
-  { id: 'uuid-1', titulo: 'Radiografía de Tórax AP', categoria: 'Radiografía', scan_status: 'CLEAN', uploaded_at: '2026-05-24T10:00:00Z' },
-  { id: 'uuid-2', titulo: 'Química Sanguínea 6 Elementos', categoria: 'Laboratorio', scan_status: 'CLEAN', uploaded_at: '2026-05-20T08:30:00Z' },
-];
+
 
 export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   const somatometrics = useSomatometrics();
@@ -68,7 +65,8 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
       }
     }
     loadConsultationType();
-  }, [appointment.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment.id, appointment.nombre]);
 
   const handleTipoConsultaChange = async (newType: 'General' | 'Control de Peso') => {
     setTipoConsulta(newType);
@@ -91,7 +89,6 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   };
 
   const [historyData, setHistoryData] = useState<any[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const fetchHistory = useCallback(async () => {
     if (!appointment.paciente_id) {
@@ -99,7 +96,6 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
       return;
     }
 
-    setIsLoadingHistory(true);
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
       const isMock = supabaseUrl.includes('your-project-id');
@@ -205,10 +201,8 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     } catch (err) {
       console.error('Error fetching historical somatometrics:', err);
       setHistoryData([]);
-    } finally {
-      setIsLoadingHistory(false);
     }
-  }, [appointment.paciente_id, appointment.id]);
+  }, [appointment.paciente_id]);
 
   useEffect(() => {
     fetchHistory();
@@ -317,6 +311,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
       }
     }
     loadCurrentSomatometrics();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointment.id, appointment.status, appointment.paciente_id]);
 
   // Build live chart data: historical baseline + current visit entry if somatometrics are entered and consultation is NOT completed
@@ -506,7 +501,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     if (!appointment.paciente_id) return;
     setIsLoadingAppointments(true);
     try {
-      let { data, error } = await supabase
+      let { data } = await supabase
         .from('consultas')
         .select(`
           id,

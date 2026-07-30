@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 
 export interface ClinicalFile {
@@ -14,7 +13,7 @@ interface ClinicalFilesListProps {
   files: ClinicalFile[];
 }
 
-export function ClinicalFilesList({ consultaId, files }: ClinicalFilesListProps) {
+export function ClinicalFilesList({ files }: ClinicalFilesListProps) {
   const getIcon = (categoria: string) => {
     switch (categoria) {
       case 'Laboratorio': return '🩸';
