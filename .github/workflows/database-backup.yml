@@ -25,11 +25,12 @@ on:
     inputs:
       reason:
         description: 'Motivo del backup manual'
-        required: false
+        required: true
+        type: string
         default: 'Backup manual solicitado'
       upload_r2:
         description: 'Subir a Cloudflare R2'
-        required: false
+        required: true
         type: boolean
         default: false
 
