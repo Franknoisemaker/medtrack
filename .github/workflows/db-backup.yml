@@ -18,22 +18,20 @@
 #   • R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME
 #     (solo si se habilita el upload a R2)
 
-name: DB - Backup Automático Producción
+name: DB - Backup Automatico Produccion
 
 on:
   schedule:
-    # Cada día a las 02:00 UTC  →  20:00 CST  |  21:00 EST
     - cron: '0 2 * * *'
-
   workflow_dispatch:
     inputs:
       reason:
-        description: 'Motivo del backup manual (ej: antes de migración)'
+        description: 'Motivo del backup manual'
         required: false
         default: 'Backup manual solicitado'
       upload_r2:
-        description: '¿Subir también a Cloudflare R2?'
-        required: true
+        description: 'Subir a Cloudflare R2'
+        required: false
         type: boolean
         default: false
 
