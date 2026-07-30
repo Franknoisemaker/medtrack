@@ -22,18 +22,6 @@ name: DB - Backup Automatico Produccion
 
 on:
   workflow_dispatch:
-    inputs:
-      reason:
-        description: 'Motivo del backup manual'
-        required: true
-        type: string
-        default: 'Backup manual solicitado'
-      upload_r2:
-        description: 'Subir a Cloudflare R2'
-        required: true
-        type: boolean
-        default: false
-
   schedule:
     - cron: '0 2 * * *'
 
