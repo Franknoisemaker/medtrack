@@ -21,8 +21,6 @@
 name: DB - Backup Automatico Produccion
 
 on:
-  schedule:
-    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       reason:
@@ -34,6 +32,9 @@ on:
         required: false
         type: boolean
         default: false
+
+  schedule:
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read
