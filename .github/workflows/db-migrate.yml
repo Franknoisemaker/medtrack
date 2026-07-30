@@ -3,7 +3,7 @@
 # SIEMPRE ejecutar primero con dry_run: true para verificar el diff.
 # Requiere aprobación del ambiente correspondiente (staging o production).
 
-name: DB — Migraciones Supabase
+name: DB - Migraciones Supabase
 
 on:
   workflow_dispatch:
