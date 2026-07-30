@@ -410,7 +410,7 @@ export function EvolutionCharts({ data }: EvolutionChartsProps) {
             border: '1px solid rgba(255,255,255,0.1)'
           }}>
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '3px', fontWeight: 700, fontSize: '0.8rem' }}>
-              {new Date(globalDates[hoveredIdx]).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {new Date(globalDates[hoveredIdx]).toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
               {CHARTS_CONFIG.map(cfg => {

@@ -173,7 +173,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           .map((c: any) => {
             const ps = Array.isArray(c.paciente_somatometria) ? c.paciente_somatometria[0] : c.paciente_somatometria;
             return {
-              fecha: (c.fecha_hora || '').substring(0, 10),
+              fecha: c.fecha_hora || new Date().toISOString(),
               peso: ps.peso_kg != null ? Number(ps.peso_kg) : null,
               talla: ps.talla_cm != null ? Number(ps.talla_cm) : null,
               imc: ps.imc != null ? Number(ps.imc) : null,
@@ -322,7 +322,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
   // Build live chart data: historical baseline + current visit entry if somatometrics are entered and consultation is NOT completed
   const livePayload = somatometrics.toPayload();
   const currentPoint = (appointment.status !== 'COMPLETED' && (livePayload.peso_kg || livePayload.pa_sistolica || livePayload.grasa_pct || livePayload.dosis_ml)) ? {
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: new Date().toISOString(),
     peso: livePayload.peso_kg || null,
     imc: livePayload.imc || null,
     pa_sistolica: livePayload.pa_sistolica || null,
