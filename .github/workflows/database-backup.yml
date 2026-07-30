@@ -252,7 +252,14 @@ jobs:
       # ── 9. Resumen ────────────────────────────────────────────────────────
       - name: Resumen del backup
         if: always()
+        env:
+          DUMP_FILENAME: ${{ steps.dump.outputs.dump_filename }}
+          FILESIZE: ${{ steps.dump.outputs.filesize }}
+          INPUT_REASON: ${{ inputs.reason }}
         run: |
+          SIZE_FORMATTED=$(numfmt --to=iec "${FILESIZE:-0}" 2>/dev/null || echo "N/A")
+          REASON_TEXT="${INPUT_REASON:-Backup automático programado}"
+
           echo "## 📦 Resumen del Backup de Base de Datos" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
@@ -260,10 +267,8 @@ jobs:
           echo "| **Timestamp** | \`${BACKUP_TIMESTAMP}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Ambiente** | Producción |" >> $GITHUB_STEP_SUMMARY
           echo "| **Trigger** | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Archivo** | \`${{ steps.dump.outputs.dump_filename }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Tamaño** | \`$(numfmt --to=iec ${{ steps.dump.outputs.filesize || '0' }} 2>/dev/null || echo 'N/A')\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Archivo** | \`${DUMP_FILENAME:-N/A}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Tamaño** | \`${SIZE_FORMATTED}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Retención GitHub** | 90 días |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "| **Motivo** | ${{ github.event.inputs.reason }} |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "| **Motivo** | ${REASON_TEXT} |" >> $GITHUB_STEP_SUMMARY
