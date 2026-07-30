@@ -95,7 +95,7 @@ jobs:
       #   User:  postgres
       #   DB:    postgres
       #
-      - name: Ejecutar pg_dump (dump lógico completo)
+      - name: Ejecutar pg_dump (dump completo: estructura + datos)
         id: dump
         working-directory: expediente-medico-app
         env:
@@ -107,9 +107,10 @@ jobs:
           mkdir -p /tmp/medtrack-backup
 
           DUMP_FILE="/tmp/medtrack-backup/medtrack_prod_${BACKUP_TIMESTAMP}.sql"
+          DUMP_DATA="/tmp/medtrack-backup/medtrack_prod_data.sql"
           DUMP_GZ="${DUMP_FILE}.gz"
 
-          echo "🗄️  Iniciando pg_dump..."
+          echo "🗄️  Iniciando backup completo (Estructura + Datos)..."
           DB_URL="postgresql://postgres:${PGPASSWORD}@db.${PROJECT_REF}.supabase.co:5432/postgres?sslmode=require"
 
           if pg_dump \
@@ -121,19 +122,32 @@ jobs:
             --no-owner \
             --file="${DUMP_FILE}" \
             --verbose; then
-            echo "✅ pg_dump directo completado correctamente."
+            echo "✅ pg_dump directo completo (Estructura + Datos) exitoso."
           else
-            echo "⚠️ pg_dump directo falló. Intentando fallback con Supabase CLI db dump..."
+            echo "⚠️ pg_dump directo falló. Ejecutando dump con Supabase CLI (Estructura + Datos)..."
+            # 1. Extraer estructura DDL (tablas, funciones, esquemas)
             supabase db dump --project-ref "${PROJECT_REF}" --password "${PGPASSWORD}" -f "${DUMP_FILE}" || \
             supabase db dump --linked -f "${DUMP_FILE}"
+
+            # 2. Extraer datos DML (registros de tablas)
+            supabase db dump --project-ref "${PROJECT_REF}" --password "${PGPASSWORD}" --data-only -f "${DUMP_DATA}" || \
+            supabase db dump --linked --data-only -f "${DUMP_DATA}"
+
+            # 3. Unir estructura + datos en el archivo principal
+            echo "" >> "${DUMP_FILE}"
+            echo "-- ==============================================" >> "${DUMP_FILE}"
+            echo "-- DATOS DE LA BASE DE DATOS (DATA DUMP)" >> "${DUMP_FILE}"
+            echo "-- ==============================================" >> "${DUMP_FILE}"
+            cat "${DUMP_DATA}" >> "${DUMP_FILE}"
+            rm -f "${DUMP_DATA}"
           fi
 
-          echo "✅ Dump completado. Comprimiendo..."
+          echo "✅ Backup completo de estructura y datos finalizado. Comprimiendo..."
           gzip -9 "${DUMP_FILE}"
 
           # Verificar integridad del archivo
           FILESIZE=$(stat -c%s "${DUMP_GZ}")
-          echo "📦 Tamaño comprimido: $(numfmt --to=iec ${FILESIZE})"
+          echo "📦 Tamaño comprimido del backup: $(numfmt --to=iec ${FILESIZE})"
 
           if [ "${FILESIZE}" -lt 1024 ]; then
             echo "❌ ALERTA: El archivo de backup parece vacío o muy pequeño (${FILESIZE} bytes)"
