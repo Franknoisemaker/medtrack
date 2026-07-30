@@ -158,22 +158,30 @@ jobs:
       #    o siempre en el cron si existen las credenciales R2.
       - name: Instalar rclone (para subida a R2)
         if: >
-          secrets.R2_ACCOUNT_ID != '' &&
-          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-           (github.event_name == 'schedule'))
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule')
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: |
+          if [ -z "${R2_ACCOUNT_ID}" ]; then
+            echo "⚠️ R2_ACCOUNT_ID no configurado. Omitiendo instalación de rclone."
+            exit 0
+          fi
           curl -fsSL https://rclone.org/install.sh | sudo bash
 
       - name: Configurar rclone para Cloudflare R2
         if: >
-          secrets.R2_ACCOUNT_ID != '' &&
-          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-           (github.event_name == 'schedule'))
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule')
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${R2_ACCESS_KEY_ID}" ]; then
+            echo "⚠️ Secretos de R2 no configurados. Omitiendo configuración de rclone."
+            exit 0
+          fi
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf << EOF
           [r2]
@@ -187,12 +195,16 @@ jobs:
 
       - name: Subir backup a Cloudflare R2
         if: >
-          secrets.R2_ACCOUNT_ID != '' &&
-          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-           (github.event_name == 'schedule'))
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule')
         env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${R2_BUCKET_NAME}" ]; then
+            echo "⚠️ Secretos de R2 no configurados. Omitiendo subida a R2."
+            exit 0
+          fi
           YEAR=$(date -u +"%Y")
           MONTH=$(date -u +"%m")
           DEST="r2:${R2_BUCKET_NAME}/database-backups/${YEAR}/${MONTH}/"
@@ -207,12 +219,16 @@ jobs:
       # ── 8. Limpiar dumps de R2 con más de 1 año ───────────────────────────
       - name: Limpiar backups de R2 con más de 365 días
         if: >
-          secrets.R2_ACCOUNT_ID != '' &&
-          ((github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
-           (github.event_name == 'schedule'))
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_r2 == 'true') ||
+          (github.event_name == 'schedule')
         env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${R2_BUCKET_NAME}" ]; then
+            echo "⚠️ Secretos de R2 no configurados. Omitiendo limpieza."
+            exit 0
+          fi
           echo "🧹 Eliminando backups de R2 con más de 365 días..."
           rclone delete "r2:${R2_BUCKET_NAME}/database-backups/" \
             --min-age 365d \
