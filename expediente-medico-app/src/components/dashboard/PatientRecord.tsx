@@ -116,7 +116,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         }
       } else {
         // Real-time production database query joining consultas and paciente_somatometria
-        let { data, error } = await supabase
+        const mainQuery = await supabase
           .from('consultas')
           .select(`
             id,
@@ -140,9 +140,11 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           .eq('status', 'COMPLETED')
           .order('fecha_hora', { ascending: true });
 
+        let data = mainQuery.data;
+
         // Fallback: if extended somatometrics columns do not exist in DB schema yet
-        if (error) {
-          console.warn('[PatientRecord] fetchHistory extended query failed, retrying with core columns fallback:', error);
+        if (mainQuery.error) {
+          console.warn('[PatientRecord] fetchHistory extended query failed, retrying with core columns fallback:', mainQuery.error);
           const fallbackRes = await supabase
             .from('consultas')
             .select(`
@@ -501,7 +503,7 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     if (!appointment.paciente_id) return;
     setIsLoadingAppointments(true);
     try {
-      let { data } = await supabase
+      const mainQuery = await supabase
         .from('consultas')
         .select(`
           id,
@@ -527,9 +529,11 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         .eq('paciente_id', appointment.paciente_id)
         .order('fecha_hora', { ascending: false });
 
+      let data = mainQuery.data;
+
       // Fallback: if tipo_consulta or new somatometrics columns do not exist in DB schema yet
-      if (error) {
-        console.warn('[PatientRecord] fetchPatientAppointments extended query failed, retrying with core columns fallback:', error);
+      if (mainQuery.error) {
+        console.warn('[PatientRecord] fetchPatientAppointments extended query failed, retrying with core columns fallback:', mainQuery.error);
         const fallbackRes = await supabase
           .from('consultas')
           .select(`
