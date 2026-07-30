@@ -129,7 +129,7 @@ serve(async (req: Request) => {
 
     // Persist somatometria if provided
     if (somatometria_json) {
-      console.log('sign-note: somatometria_json payload:', JSON.stringify(somatometria_json));
+      console.log(`[sign-note:${consulta_id}] somatometria_json payload:`, JSON.stringify(somatometria_json));
       const {
         peso_kg,
         talla_cm,
@@ -194,11 +194,18 @@ serve(async (req: Request) => {
           });
 
         if (somaErr) {
-          console.error('Error persisting paciente_somatometria:', JSON.stringify(somaErr));
+          console.error(`[sign-note:${consulta_id}] Error persisting paciente_somatometria:`, JSON.stringify(somaErr));
+
+          // ATOMIC ROLLBACK: revert nota_soap back to draft so note is NOT considered signed without somatometria
+          await supabase
+            .from('notas_soap')
+            .update({ status: 'draft', firma_electronica: null, signed_at: null })
+            .eq('id', nota.id);
+
           return new Response(
             JSON.stringify({
               success: false,
-              error: 'Error al guardar la somatometría. Verifica la configuración de la base de datos.',
+              error: 'Error al guardar los datos de somatometría. La firma fue cancelada para proteger la integridad de los datos. Por favor intente firmar nuevamente.',
               debug: somaErr
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -208,14 +215,33 @@ serve(async (req: Request) => {
     }
 
     // Update consultation status to COMPLETED
-    await supabase
+    const { error: consultaUpdateErr } = await supabase
       .from('consultas')
       .update({ status: 'COMPLETED' })
       .eq('id', consulta_id);
 
+    if (consultaUpdateErr) {
+      console.error(`[sign-note:${consulta_id}] Error updating consulta status:`, JSON.stringify(consultaUpdateErr));
+
+      // ATOMIC ROLLBACK: revert nota_soap back to draft
+      await supabase
+        .from('notas_soap')
+        .update({ status: 'draft', firma_electronica: null, signed_at: null })
+        .eq('id', nota.id);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Error al finalizar la consulta. La firma fue cancelada para mantener la consistencia de los datos.',
+          debug: consultaUpdateErr
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // NOM-024 audit log
     const ip = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || '127.0.0.1';
-    await supabase.from('audit_logs').insert({
+    const { error: auditErr } = await supabase.from('audit_logs').insert({
       medico_id,
       consulta_id,
       event_type: 'SOAP_NOTE_CREATE',
@@ -227,6 +253,10 @@ serve(async (req: Request) => {
       ip: ip,
       user_agent: req.headers.get('user-agent') ?? 'Unknown',
     });
+
+    if (auditErr) {
+      console.warn(`[sign-note:${consulta_id}] Audit log insertion warning:`, JSON.stringify(auditErr));
+    }
 
     return new Response(
       JSON.stringify({ success: true, nota_id: nota.id, firma_preview: firma.substring(0, 16) + '...', signed_at: timestamp }),

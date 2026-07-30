@@ -712,9 +712,9 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
       // Refresh historical data and timeline appointments immediately upon signing
       fetchHistory();
       fetchPatientAppointments();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error signing note:', err);
-      alert('Error al firmar la nota. Intenta nuevamente.');
+      alert(`⚠️ Error al firmar la nota:\n\n${err?.message || 'Ocurrió un error inesperado. Intenta nuevamente.'}`);
     } finally {
       setIsSigning(false);
     }
