@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { S3Client, GetObjectCommand } from 'npm:@aws-sdk/client-s3';
 import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner';
 import { handleCors, corsHeaders } from '../_shared/cors.ts';
+import { assertConsultaOwner, HttpError, errorResponse } from '../_shared/doctorAuth.ts';
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return handleCors(req);
@@ -93,6 +94,9 @@ serve(async (req: Request) => {
     }
 
     // 3. Generate Presigned URL (TTL: 60 seconds)
+    // Service role bypasses RLS: only the doctor assigned to the consultation may download its files
+    await assertConsultaOwner(supabase, fileRecord.consulta_id, resolvedMedicoId);
+
     const s3 = new S3Client({
       region: 'auto',
       endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
@@ -131,6 +135,7 @@ serve(async (req: Request) => {
     );
 
   } catch (err) {
+    if (err instanceof HttpError) return errorResponse(err);
     console.error('Error in get-file:', err);
     return new Response(
       JSON.stringify({ error: 'Error interno al generar el acceso seguro al archivo.' }),

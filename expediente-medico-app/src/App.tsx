@@ -47,11 +47,10 @@ function App() {
     setIsResolvingShortCode(true);
     setShortCodeError(null);
     try {
-      const { data, error } = await supabase
-        .from('enlaces_cortos')
-        .select('long_token, expires_at')
-        .eq('code', code)
-        .maybeSingle();
+      // Resolved through an RPC: patients may look up one code but never list the table
+      const { data: rows, error } = await supabase
+        .rpc('resolve_enlace_corto', { p_code: code });
+      const data: { long_token: string; expires_at: string } | undefined = rows?.[0];
 
       if (error) throw error;
 

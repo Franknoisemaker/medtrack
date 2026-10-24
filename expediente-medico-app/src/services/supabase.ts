@@ -112,7 +112,10 @@ export const supabase = (globalSupabase && !isMockMode)
 
       rpc: (method: string, params?: any) => {
         console.warn(`Sandbox: RPC '${method}' invocado con:`, params);
-        if (method === 'get_decrypted_medico') {
+        if (method === 'resolve_enlace_corto') {
+          return new MockQueryBuilder('enlaces_cortos').eq('code', params?.p_code);
+        }
+                if (method === 'get_decrypted_medico') {
           return Promise.resolve({
             data: [{
               id: params?.p_medico_id || 'mock-doctor-uuid-123456',

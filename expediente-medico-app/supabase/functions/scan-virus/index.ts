@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { S3Client, PutObjectCommand } from 'npm:@aws-sdk/client-s3';
 import { handleCors, corsHeaders } from '../_shared/cors.ts';
+import { requireDoctor, assertConsultaOwner, HttpError, errorResponse } from '../_shared/doctorAuth.ts';
 import { getFileTypeFromMagicBytes } from './magic-bytes.ts';
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
@@ -35,14 +36,21 @@ serve(async (req: Request) => {
     const titulo = formData.get('titulo') as string;
     const categoria = formData.get('categoria') as string;
     const consulta_id = formData.get('consulta_id') as string;
-    const medico_id = formData.get('medico_id') as string;
 
-    if (!file || !titulo || !categoria || !consulta_id || !medico_id) {
+    if (!file || !titulo || !categoria || !consulta_id) {
       return new Response(
-        JSON.stringify({ error: 'Faltan campos requeridos (file, titulo, categoria, consulta_id, medico_id).' }),
+        JSON.stringify({ error: 'Faltan campos requeridos (file, titulo, categoria, consulta_id).' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const isLocalDev = !supabaseUrl.startsWith('https://') ||
+                       supabaseUrl.includes('localhost') ||
+                       supabaseUrl.includes('127.0.0.1') ||
+                       supabaseUrl.includes('kong');
+    // medico_id from the form is ignored: the uploader is always the authenticated doctor
+    const medico_id = await requireDoctor(req, supabase, isLocalDev);
+    await assertConsultaOwner(supabase, consulta_id, medico_id);
 
     if (file.size > MAX_FILE_SIZE) {
       return new Response(
@@ -148,6 +156,7 @@ serve(async (req: Request) => {
     );
 
   } catch (err) {
+    if (err instanceof HttpError) return errorResponse(err);
     console.error('Error in scan-virus:', err);
     if (err instanceof Error && err.name === 'AbortError') {
       return new Response(

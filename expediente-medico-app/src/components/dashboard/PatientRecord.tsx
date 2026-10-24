@@ -12,6 +12,8 @@ import { NewAppointmentForm } from './NewAppointmentForm';
 import type { Appointment } from './NewAppointmentForm';
 import { HistoricalNoteModal } from './HistoricalNoteModal';
 import { CalendarButton } from './CalendarButton';
+import { fetchAclaraciones } from '../../services/aclaraciones';
+import type { Aclaracion } from '../../services/aclaraciones';
 
 interface PatientRecordProps {
   appointment: Appointment;
@@ -413,6 +415,8 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
     plan: string;
     isSigned: boolean;
     loading: boolean;
+    aclaraciones?: Aclaracion[];
+    aclaracionesError?: boolean;
   }>>({});
 
   const handleToggleAccordion = useCallback(async (consultaId: string) => {
@@ -458,6 +462,17 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
         const data = remoteNotes?.[0];
 
         if (data && !error) {
+          const isSigned = data.nota_status === 'signed';
+          let aclaraciones: Aclaracion[] = [];
+          let aclaracionesError = false;
+          if (isSigned) {
+            try {
+              aclaraciones = await fetchAclaraciones(consultaId);
+            } catch (aclErr) {
+              console.error('[PatientRecord] Error fetching aclaraciones:', aclErr);
+              aclaracionesError = true;
+            }
+          }
           setLoadedSoapNotes(prev => ({
             ...prev,
             [consultaId]: {
@@ -465,8 +480,10 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
               objetivo: data.objetivo || '',
               analisis: data.analisis || '',
               plan: data.plan || '',
-              isSigned: data.nota_status === 'signed',
-              loading: false
+              isSigned,
+              loading: false,
+              aclaraciones,
+              aclaracionesError,
             }
           }));
         } else {
@@ -1334,6 +1351,30 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
                                     </span>
                                   </div>
                                 </div>
+
+                                {(loadedSoapNotes[appItem.id]?.aclaraciones?.length ?? 0) > 0 && (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-secondary)' }}>
+                                      📝 Notas Aclaratorias ({loadedSoapNotes[appItem.id]?.aclaraciones?.length})
+                                    </span>
+                                    {loadedSoapNotes[appItem.id]?.aclaraciones?.map(ac => (
+                                      <div key={ac.id} style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.15)' }}>
+                                        <div style={{ fontSize: '0.65rem', opacity: 0.5, marginBottom: '2px', color: 'var(--color-primary)' }}>
+                                          {new Date(ac.creado_at).toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                        <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                          {ac.aclaracion_texto}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {loadedSoapNotes[appItem.id]?.aclaracionesError && (
+                                  <div role="alert" style={{ fontSize: '0.72rem', color: '#b91c1c', marginTop: '4px' }}>
+                                    ⚠️ No se pudieron cargar las notas aclaratorias de esta consulta.
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>

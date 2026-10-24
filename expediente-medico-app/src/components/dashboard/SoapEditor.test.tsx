@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SoapEditor } from './SoapEditor';
 import { supabase } from '../../services/supabase';
+import { fetchAclaraciones } from '../../services/aclaraciones';
 
 // Mock the supabase client completely
 vi.mock('../../services/supabase', () => {
@@ -30,6 +31,11 @@ vi.mock('../../services/supabase', () => {
     }
   };
 });
+
+vi.mock('../../services/aclaraciones', () => ({
+  fetchAclaraciones: vi.fn().mockResolvedValue([]),
+  getSignedNotaSoapId: vi.fn().mockResolvedValue(null),
+}));
 
 describe('SoapEditor Component', () => {
   const mockConsultaId = 'consulta-uuid-111';
@@ -97,5 +103,24 @@ describe('SoapEditor Component', () => {
     textareas.forEach(textarea => {
       expect(textarea.style.fontSize).toBe('16px');
     });
+  });
+
+  it('shows saved aclaraciones on a signed (read-only) note', async () => {
+    vi.mocked(fetchAclaraciones).mockResolvedValueOnce([
+      { id: 'a1', aclaracion_texto: 'Se corrige la dosis de metformina a 850 mg.', creado_at: '2026-10-01T10:00:00Z' },
+    ]);
+
+    render(<SoapEditor consultaId={mockConsultaId} readOnly />);
+
+    expect(await screen.findByText('Se corrige la dosis de metformina a 850 mg.')).toBeInTheDocument();
+    expect(fetchAclaraciones).toHaveBeenCalledWith(mockConsultaId);
+  });
+
+  it('shows an error instead of an empty list when aclaraciones fail to load', async () => {
+    vi.mocked(fetchAclaraciones).mockRejectedValueOnce({ message: 'permission denied', code: '42501' });
+
+    render(<SoapEditor consultaId={mockConsultaId} readOnly />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudieron cargar las notas aclaratorias/i);
   });
 });
