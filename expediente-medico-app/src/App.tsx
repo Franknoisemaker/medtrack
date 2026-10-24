@@ -5,6 +5,7 @@ import type { Appointment } from './components/dashboard/NewAppointmentForm';
 import { SoftGateForm } from './components/onboarding/SoftGateForm';
 import { QrScanner } from './components/dashboard/QrScanner';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { ConsentWizard } from './components/consent/ConsentWizard';
 import { KanbanBoard } from './components/dashboard/KanbanBoard';
 import { PatientRecord } from './components/dashboard/PatientRecord';
 import { AuthGateway } from './components/auth/AuthGateway';
@@ -39,6 +40,10 @@ function App() {
   const [token, setToken] = useState<string | null>(null);
   const [patientSession, setPatientSession] = useState<{ sessionToken: string; consultaId: string; patient?: any } | null>(null);
 
+  // Consent Flow States
+  const [consentToken, setConsentToken] = useState<string | null>(null);
+  const [consentCompleted, setConsentCompleted] = useState(false);
+
   // URL Shortener States
   const [isResolvingShortCode, setIsResolvingShortCode] = useState(false);
   const [shortCodeError, setShortCodeError] = useState<string | null>(null);
@@ -70,6 +75,35 @@ function App() {
     } catch (err) {
       console.error('Error resolving short code:', err);
       setShortCodeError('Ocurrió un error al verificar el enlace de acceso.');
+    } finally {
+      setIsResolvingShortCode(false);
+    }
+  };
+
+  const resolveConsentLink = async (code: string) => {
+    setIsResolvingShortCode(true);
+    setShortCodeError(null);
+    try {
+      const { data, error } = await supabase
+        .from('enlaces_cortos')
+        .select('long_token, expires_at')
+        .eq('code', code)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        setShortCodeError('El enlace de consentimiento es inválido o no existe.');
+        return;
+      }
+      if (new Date(data.expires_at) < new Date()) {
+        setShortCodeError('El enlace de consentimiento ha caducado. Solicita uno nuevo a tu médico.');
+        return;
+      }
+      setConsentToken(data.long_token);
+      setTheme('zen');
+    } catch (err) {
+      console.error('Error resolving consent code:', err);
+      setShortCodeError('Ocurrió un error al verificar el enlace de consentimiento.');
     } finally {
       setIsResolvingShortCode(false);
     }
@@ -136,8 +170,12 @@ function App() {
     const tokenParam = urlParams.get('token');
     const qrTokenParam = urlParams.get('qr_token');
     const shortParam = urlParams.get('s');
+    const consentParam = urlParams.get('consent');
 
-    if (shortParam) {
+    if (consentParam) {
+      // Consent flow: resolve short code to consent token
+      resolveConsentLink(consentParam);
+    } else if (shortParam) {
       resolveShortLink(shortParam);
     } else if (tokenParam) {
       setToken(tokenParam);
@@ -386,6 +424,20 @@ function App() {
       <div className="theme-zen" style={{ minHeight: '100vh', background: 'var(--color-bg)', padding: '2rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <QrScanner qrToken={qrToken} onSuccess={handleAssistedVerified} />
       </div>
+    );
+  }
+
+  // --- PATIENT CONSENT SIGNING WORKSPACE ---
+  if (consentToken && !consentCompleted) {
+    return (
+      <ConsentWizard
+        token={consentToken}
+        onComplete={() => {
+          setConsentCompleted(true);
+          setConsentToken(null);
+          window.history.replaceState(null, '', window.location.origin);
+        }}
+      />
     );
   }
 

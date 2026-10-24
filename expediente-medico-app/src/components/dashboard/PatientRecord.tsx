@@ -12,6 +12,7 @@ import { NewAppointmentForm } from './NewAppointmentForm';
 import type { Appointment } from './NewAppointmentForm';
 import { HistoricalNoteModal } from './HistoricalNoteModal';
 import { CalendarButton } from './CalendarButton';
+import { ConsentSection } from './ConsentSection';
 
 interface PatientRecordProps {
   appointment: Appointment;
@@ -922,6 +923,13 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
               />
             )}
           </div>
+
+          {/* Consentimientos Informados */}
+          <ConsentSection
+            pacienteId={appointment.paciente_id || appointment.id}
+            pacienteNombre={appointment.nombre}
+            pacienteTelefono={appointment.telefono || ''}
+          />
 
           {/* Historial de Consultas de Control (Timeline de Citas Pasadas y Futuras) */}
           <div className="card-glass" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
