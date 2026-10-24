@@ -2,8 +2,9 @@ import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { useAutosaveSoap, loadDraftFromIDB } from '../../hooks/useAutosaveSoap';
 import { SoapFocusOverlay } from './SoapFocusOverlay';
 import { supabase } from '../../services/supabase';
-import { fetchAclaraciones, getSignedNotaSoapId } from '../../services/aclaraciones';
+import { fetchAclaraciones } from '../../services/aclaraciones';
 import type { Aclaracion } from '../../services/aclaraciones';
+import { hasUndecryptedField, DECRYPTION_FAILED_MESSAGE } from '../../services/soapDecryption';
 
 // ---  CIE-10 Quick Dataset: Top 50 diagnoses embedded inline (<5KB) ---
 const CIE10_COMMON = [
@@ -76,6 +77,8 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
   const [cie10Query, setCie10Query] = useState('');
   const [cie10Results, setCie10Results] = useState<typeof CIE10_COMMON>([]);
   const isTablet = typeof window !== 'undefined' && window.innerWidth >= 768;
+  // Server returned ciphertext (decryption failed): never show it and never autosave over it
+  const [decryptionFailed, setDecryptionFailed] = useState(false);
 
   // Refs for textarea elements
   const textareaRefs = useRef<Partial<Record<SoapField, HTMLTextAreaElement | null>>>({});
@@ -95,7 +98,12 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
         }
 
         if (remoteNote && !remoteErr) {
-          const soapFields = {
+          const undecryptable = hasUndecryptedField(remoteNote);
+          if (undecryptable) {
+            console.error('[SoapEditor] get_decrypted_soap_note returned undecrypted content for consulta:', consultaId);
+          }
+          setDecryptionFailed(undecryptable);
+          const soapFields = undecryptable ? { subjetivo: '', objetivo: '', analisis: '', plan: '' } : {
             subjetivo: remoteNote.subjetivo || '',
             objetivo: remoteNote.objetivo || '',
             analisis: remoteNote.analisis || '',
@@ -194,7 +202,7 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
     consultaId,
     draft: fields,
     onSaveStatus: setSaveStatus,
-    disabled: readOnly, // stop timers once note is signed
+    disabled: readOnly || decryptionFailed, // stop timers once note is signed or unreadable
   });
 
   const setField = useCallback((key: SoapField, value: string) => {
@@ -290,48 +298,37 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
     setIsSavingAclaracion(true);
     setAclaracionError(null);
     try {
-      // Get the real nota_soap_id for this consultation
-      const notaSoapId = await getSignedNotaSoapId(consultaId);
-      if (!notaSoapId) {
-        throw new Error('No se encontró una nota SOAP firmada para esta consulta.');
-      }
-
-      // Generate a simple HMAC-style signature for the aclaracion (NOM-004 compliance)
-      const timestamp = new Date().toISOString();
-      const sigPayload = `aclaracion:${consultaId}:${timestamp}:${aclaracionText.trim()}`;
-      const encoder = new TextEncoder();
-      const clinicalSecret = import.meta.env.VITE_CLINICAL_SECRET_KEY || 'medtrack_clinical_secret_key_2026_nom024';
-      const keyData = encoder.encode(clinicalSecret);
-      const msgData = encoder.encode(sigPayload);
-      const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-      const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
-      const firma = Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
-
       const session = (await supabase.auth.getSession().catch(() => ({ data: { session: null } }))).data?.session;
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
       const isMock = supabaseUrl.includes('your-project-id');
 
-      if (!session && !isMock) {
-        throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+      let saved: Aclaracion;
+      if (isMock) {
+        saved = { id: crypto.randomUUID(), aclaracion_texto: aclaracionText.trim(), creado_at: new Date().toISOString() };
+      } else {
+        if (!session) {
+          throw new Error('Sesión de médico no válida o expirada. Por favor, inicia sesión.');
+        }
+        // Signed server-side (NOM-004 HMAC): the signing key never reaches the browser
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+        const resp = await fetch(`${supabaseUrl}/functions/v1/add-aclaracion?apikey=${supabaseAnonKey}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ consulta_id: consultaId, aclaracion_texto: aclaracionText.trim() }),
+        });
+        const res = await resp.json().catch(() => ({}));
+        if (!resp.ok || !res.success) {
+          throw new Error(res.error || 'Error al guardar la nota aclaratoria.');
+        }
+        saved = res.aclaracion;
       }
 
-      const activeDoctorId = session?.user?.id || (isMock ? 'a6b12a8a-e55d-4f11-8ac1-f11181283c44' : '');
-
-      const { error: insertErr } = await supabase.from('soap_aclaraciones').insert({
-        nota_soap_id: notaSoapId,
-        medico_id: activeDoctorId,
-        aclaracion_texto: aclaracionText.trim(),
-        firma_electronica: firma,
-      });
-
-      if (insertErr) throw insertErr;
-
       // Update local display immediately
-      setAclaraciones(prev => [...prev, {
-        id: crypto.randomUUID(),
-        aclaracion_texto: aclaracionText.trim(),
-        creado_at: timestamp,
-      }]);
+      setAclaraciones(prev => [...prev, saved]);
       setAclaracionSaved(true);
       setAclaracionText('');
       setTimeout(() => { setShowAclaracion(false); setAclaracionSaved(false); }, 1500);
@@ -348,6 +345,21 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
       setIsSavingAclaracion(false);
     }
   };
+
+  if (decryptionFailed) {
+    return (
+      <div role="alert" style={{
+        padding: '1rem 1.25rem',
+        borderRadius: '8px',
+        background: 'rgba(239,68,68,0.06)',
+        border: '1px solid rgba(239,68,68,0.25)',
+        color: '#b91c1c',
+        fontSize: '0.9rem',
+      }}>
+        ⚠️ {DECRYPTION_FAILED_MESSAGE}
+      </div>
+    );
+  }
 
   if (readOnly) {
     const displayMeta = signedData || {

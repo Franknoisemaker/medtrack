@@ -14,6 +14,7 @@ import { HistoricalNoteModal } from './HistoricalNoteModal';
 import { CalendarButton } from './CalendarButton';
 import { fetchAclaraciones } from '../../services/aclaraciones';
 import type { Aclaracion } from '../../services/aclaraciones';
+import { hasUndecryptedField, DECRYPTION_FAILED_MESSAGE } from '../../services/soapDecryption';
 
 interface PatientRecordProps {
   appointment: Appointment;
@@ -463,6 +464,11 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
 
         if (data && !error) {
           const isSigned = data.nota_status === 'signed';
+          // Never render ciphertext if server-side decryption failed
+          const undecryptable = hasUndecryptedField(data);
+          if (undecryptable) {
+            console.error('[PatientRecord] get_decrypted_soap_note returned undecrypted content for consulta:', consultaId);
+          }
           let aclaraciones: Aclaracion[] = [];
           let aclaracionesError = false;
           if (isSigned) {
@@ -476,10 +482,10 @@ export function PatientRecord({ appointment, onBack }: PatientRecordProps) {
           setLoadedSoapNotes(prev => ({
             ...prev,
             [consultaId]: {
-              subjetivo: data.subjetivo || '',
-              objetivo: data.objetivo || '',
-              analisis: data.analisis || '',
-              plan: data.plan || '',
+              subjetivo: undecryptable ? DECRYPTION_FAILED_MESSAGE : data.subjetivo || '',
+              objetivo: undecryptable ? '' : data.objetivo || '',
+              analisis: undecryptable ? '' : data.analisis || '',
+              plan: undecryptable ? '' : data.plan || '',
               isSigned,
               loading: false,
               aclaraciones,

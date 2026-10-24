@@ -414,6 +414,9 @@ verify_jwt = false
 [functions.sign-note]
 verify_jwt = false
 
+[functions.add-aclaracion]
+verify_jwt = false
+
 # [experimental.pgdelta]
 # When enabled, pg-delta becomes the active engine for supported schema flows.
 # enabled = false

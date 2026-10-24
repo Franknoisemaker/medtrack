@@ -1,7 +1,8 @@
 # MedTrack — Pipeline de Producción
 # Trigger: push a main únicamente.
-# Secuencia: CI (lint → tsc → test → build) → Deploy (solo si CI pasa)
-# El deploy NUNCA se ejecuta si algún paso del CI falla.
+# Secuencia: CI (lint → tsc → test → build) → Supabase (migraciones + Edge Functions) → Deploy Vercel
+# El deploy NUNCA se ejecuta si algún paso del CI falla, y el frontend nunca se publica
+# antes de que la base de datos y las Edge Functions de las que depende estén aplicadas.
 
 name: Producción — CI → Deploy
 
@@ -12,6 +13,11 @@ on:
 permissions:
   contents: read
   statuses: write
+
+# Nunca dos despliegues de producción (y sus migraciones) en paralelo
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
   # ─────────────────────────────────────────
@@ -64,13 +70,68 @@ jobs:
           NODE_ENV: production
 
   # ─────────────────────────────────────────
-  # JOB 2: Deploy a Producción
-  # Solo se ejecuta si el job CI pasa completamente.
+  # JOB 2: Supabase — migraciones + Edge Functions
+  # Solo se ejecuta si el CI pasa. Aplica únicamente las migraciones pendientes
+  # (supabase db push compara contra supabase_migrations.schema_migrations).
+  # ─────────────────────────────────────────
+  supabase:
+    name: Supabase — Migraciones & Edge Functions
+    runs-on: ubuntu-latest
+    needs: ci
+    environment: production
+    defaults:
+      run:
+        working-directory: expediente-medico-app
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Link proyecto de producción
+        env:
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF_PRODUCTION }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PRODUCTION }}
+        run: |
+          if [ -z "${PROJECT_REF}" ] || [ -z "${DB_PASSWORD}" ] || [ -z "${SUPABASE_ACCESS_TOKEN}" ]; then
+            echo "::error::Faltan secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF_PRODUCTION o SUPABASE_DB_PASSWORD_PRODUCTION"
+            exit 1
+          fi
+          supabase link --project-ref "${PROJECT_REF}" --password "${DB_PASSWORD}"
+
+      - name: Migraciones pendientes (dry-run, para el log)
+        run: supabase db push --linked --dry-run
+
+      - name: Aplicar migraciones
+        run: supabase db push --linked
+
+      - name: Desplegar Edge Functions
+        env:
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF_PRODUCTION }}
+        run: |
+          # Todas las funciones del repo (excepto _shared); verify_jwt=false como en config.toml,
+          # cada función valida el JWT del doctor por sí misma.
+          for dir in supabase/functions/*/; do
+            fn=$(basename "$dir")
+            [ "$fn" = "_shared" ] && continue
+            echo "▶ Desplegando $fn"
+            supabase functions deploy "$fn" --project-ref "${PROJECT_REF}" --no-verify-jwt
+          done
+
+  # ─────────────────────────────────────────
+  # JOB 3: Deploy a Producción
+  # Solo se ejecuta si el CI pasa y la base de datos / Edge Functions ya están desplegadas.
   # ─────────────────────────────────────────
   deploy:
     name: Deploy → medtrack.mx
     runs-on: ubuntu-latest
-    needs: ci                  # ← bloqueado hasta que CI verde
+    needs: [ci, supabase]      # ← bloqueado hasta CI verde y Supabase desplegado
     environment: production    # ← requiere aprobación manual en GitHub
 
     steps:

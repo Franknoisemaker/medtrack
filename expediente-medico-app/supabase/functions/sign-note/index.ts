@@ -2,25 +2,9 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { handleCors, corsHeaders } from '../_shared/cors.ts';
 import { requireDoctor, assertConsultaOwner, HttpError, errorResponse } from '../_shared/doctorAuth.ts';
+import { sha256hex, hmacSha256 } from '../_shared/clinicalSignature.ts';
 
 const SOAP_PREFIX = 'medtrack-soap-v1';
-
-async function sha256hex(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function hmacSha256(secret: string, message: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
-  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return handleCors(req);
@@ -96,37 +80,30 @@ serve(async (req: Request) => {
       );
     }
 
-    // Persist SOAP note with signature
-    // Column names must match schema: *_cifrado suffix, no medico_id or somatometria
-    // Uses UPSERT because the autosave hook may have already created a draft row for this consulta_id.
-    // The unique constraint on consulta_id (migration 20260525000010) ensures only one row per consultation.
-    const { data: nota, error: notaErr } = await supabase
-      .from('notas_soap')
-      .upsert(
-        {
-          consulta_id,
-          subjetivo_cifrado: subjetivo,
-          objetivo_cifrado: objetivo,
-          analisis_cifrado: analisis,
-          plan_cifrado: plan,
-          firma_electronica: firma,
-          key_version,
-          signed_at: timestamp,
-          status: 'signed',
-        },
-        { onConflict: 'consulta_id' }
-      )
-      .select('id')
-      .single();
+    // Persist SOAP note with signature.
+    // sign_soap_note encrypts the four fields with the Vault PHI key inside Postgres
+    // (same key and format as save_soap_draft), so plaintext never reaches the table.
+    // It upserts on consulta_id because the autosave hook may have already created a draft row.
+    const { data: notaId, error: notaErr } = await supabase.rpc('sign_soap_note', {
+      p_consulta_id: consulta_id,
+      p_subjetivo: subjetivo,
+      p_objetivo: objetivo,
+      p_analisis: analisis,
+      p_plan: plan,
+      p_firma: firma,
+      p_key_version: key_version,
+      p_signed_at: timestamp,
+    });
+    const nota = notaId ? { id: notaId as string } : null;
 
-    if (notaErr) {
-      console.error('Error upserting nota_soap:', JSON.stringify(notaErr));
+    if (notaErr || !nota) {
+      console.error('Error signing nota_soap:', JSON.stringify(notaErr));
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Error al guardar la nota clínica.',
           // Expose full Postgres error in dev for diagnosis
-          debug: { code: notaErr.code, message: notaErr.message, details: notaErr.details, hint: notaErr.hint }
+          debug: notaErr ? { code: notaErr.code, message: notaErr.message, details: notaErr.details, hint: notaErr.hint } : null
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
