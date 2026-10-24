@@ -123,4 +123,25 @@ describe('SoapEditor Component', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudieron cargar las notas aclaratorias/i);
   });
+
+  it('saves an aclaracion through the add-aclaracion Edge Function, never inserting directly', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://real-project.supabase.co');
+    const saved = { id: 'srv-1', aclaracion_texto: 'Se corrige la dosis a 850 mg.', creado_at: '2026-10-24T10:00:00Z' };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, aclaracion: saved }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<SoapEditor consultaId={mockConsultaId} readOnly />);
+    fireEvent.click(await screen.findByText(/Agregar Nota Aclaratoria/i));
+    fireEvent.change(screen.getByPlaceholderText(/Aclaración o corrección/i), { target: { value: saved.aclaracion_texto } });
+    fireEvent.click(screen.getByText('Guardar Aclaración'));
+
+    expect(await screen.findByText(saved.aclaracion_texto)).toBeInTheDocument();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('/functions/v1/add-aclaracion');
+    expect(JSON.parse(init.body)).toEqual({ consulta_id: mockConsultaId, aclaracion_texto: saved.aclaracion_texto });
+    expect(supabase.from).not.toHaveBeenCalledWith('soap_aclaraciones');
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
 });

@@ -81,29 +81,11 @@ export function useAutosaveSoap({ consultaId, draft, onSaveStatus, disabled = fa
       });
 
       if (error) {
-        console.warn('[AutosaveSOAP] RPC save_soap_draft failed, using REST fallback', error.message);
-
-        // REST fallback: requires UNIQUE constraint on notas_soap(consulta_id)
-        // See migration: 20260525000010_notas_soap_unique_constraint.sql
-        const { error: upsertError } = await supabase
-          .from('notas_soap')
-          .upsert(
-            {
-              consulta_id: draftToSync.consultaId,
-              subjetivo_cifrado: `[PGP_ENCRYPTED]_${draftToSync.subjetivo}`,
-              objetivo_cifrado: `[PGP_ENCRYPTED]_${draftToSync.objetivo}`,
-              analisis_cifrado: `[PGP_ENCRYPTED]_${draftToSync.analisis}`,
-              plan_cifrado: `[PGP_ENCRYPTED]_${draftToSync.plan}`,
-              status: 'draft'
-            },
-            { onConflict: 'consulta_id' }
-          );
-
-        if (upsertError) {
-          console.error('[AutosaveSOAP] REST fallback upsert failed:', upsertError.code, upsertError.message);
-          onSaveStatus?.('error');
-          return;
-        }
+        // No REST fallback: writing notas_soap directly would store the draft unencrypted.
+        // The draft stays in IndexedDB and the next sync retries the RPC.
+        console.error('[AutosaveSOAP] RPC save_soap_draft failed:', error.code, error.message);
+        onSaveStatus?.('error');
+        return;
       }
 
       lastSavedRef.current = JSON.stringify(draftToSync);
