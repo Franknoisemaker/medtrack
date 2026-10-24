@@ -82,9 +82,12 @@ $$;
 -- Armored PGP, the format save_soap_draft writes and decrypt_phi_field reads.
 -- Values already armored are returned unchanged; the legacy '[PGP_ENCRYPTED]_' marker
 -- (plaintext with a prefix) is stripped before encrypting.
+-- pgcrypto lives in the "extensions" schema on Supabase, which is not on the search_path of the
+-- migration session, so pin it here (a missing schema in search_path is ignored elsewhere).
 CREATE OR REPLACE FUNCTION public.encrypt_phi_field(p_value TEXT, p_key TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
+SET search_path = public, extensions
 AS $$
 BEGIN
   IF p_value IS NULL THEN
