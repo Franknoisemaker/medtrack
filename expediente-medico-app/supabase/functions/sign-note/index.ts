@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { handleCors, corsHeaders } from '../_shared/cors.ts';
+import { requireDoctor, assertConsultaOwner, HttpError, errorResponse } from '../_shared/doctorAuth.ts';
 
 const SOAP_PREFIX = 'medtrack-soap-v1';
 
@@ -46,7 +47,8 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    const { consulta_id, soap_json, somatometria_json, medico_id, cedula } = body;
+    // medico_id from the body is ignored: the signer is always the authenticated doctor
+    const { consulta_id, soap_json, somatometria_json, cedula } = body;
 
     if (!consulta_id || !soap_json) {
       return new Response(
@@ -54,6 +56,9 @@ serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const medico_id = await requireDoctor(req, supabase, isLocalDev);
+    await assertConsultaOwner(supabase, consulta_id, medico_id);
 
     // Validate all 4 SOAP fields are present
     const { subjetivo, objetivo, analisis, plan } = soap_json;
@@ -264,6 +269,7 @@ serve(async (req: Request) => {
     );
 
   } catch (err) {
+    if (err instanceof HttpError) return errorResponse(err);
     console.error('sign-note error:', err);
     return new Response(
       JSON.stringify({ success: false, error: 'Error interno al firmar la nota.' }),

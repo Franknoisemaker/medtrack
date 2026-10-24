@@ -108,27 +108,38 @@ Deno.serve(async (req) => {
     // 5. Retrieve or Create the Patient Record
     let pacienteId: string | undefined = undefined;
 
+    // Patients are isolated per doctor: only reuse a patient that already has a consultation
+    // with THIS doctor. A paciente_id or name/phone match belonging to another doctor is never linked.
     if (paciente_id) {
-      const { data: existingPatient } = await supabase
-        .from('pacientes')
-        .select('id')
-        .eq('id', paciente_id)
+      const { data: ownPatient } = await supabase
+        .from('consultas')
+        .select('paciente_id')
+        .eq('paciente_id', paciente_id)
+        .eq('medico_id', doctorId)
+        .limit(1)
         .maybeSingle();
 
-      if (existingPatient) {
-        pacienteId = existingPatient.id;
+      if (!ownPatient) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Acceso denegado: el paciente no pertenece a este médico.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      pacienteId = ownPatient.paciente_id;
     }
 
     if (!pacienteId) {
       // Safe check: Check if patient already exists with BOTH the same name and phone number
       // This ensures distinct patients sharing a telephone number (e.g., family members) are NOT merged,
       // and homonyms with different telephone numbers are also NOT merged.
+      // Scoped to this doctor's patients so another doctor's record is never reused.
       const { data: existingMatch } = await supabase
         .from('pacientes')
-        .select('id')
+        .select('id, consultas!inner ( medico_id )')
         .eq('telefono', telefono)
         .ilike('nombre', nombre.trim())
+        .eq('consultas.medico_id', doctorId)
+        .limit(1)
         .maybeSingle();
 
       if (existingMatch) {

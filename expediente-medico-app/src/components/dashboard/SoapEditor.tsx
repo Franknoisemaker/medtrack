@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { useAutosaveSoap, loadDraftFromIDB } from '../../hooks/useAutosaveSoap';
 import { SoapFocusOverlay } from './SoapFocusOverlay';
 import { supabase } from '../../services/supabase';
+import { fetchAclaraciones, getSignedNotaSoapId } from '../../services/aclaraciones';
+import type { Aclaracion } from '../../services/aclaraciones';
 
 // ---  CIE-10 Quick Dataset: Top 50 diagnoses embedded inline (<5KB) ---
 const CIE10_COMMON = [
@@ -268,50 +270,30 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
   const [aclaracionText, setAclaracionText] = useState('');
   const [isSavingAclaracion, setIsSavingAclaracion] = useState(false);
   const [aclaracionSaved, setAclaracionSaved] = useState(false);
-  const [aclaraciones, setAclaraciones] = useState<{ id: string; aclaracion_texto: string; creado_at: string }[]>([]);
+  const [aclaraciones, setAclaraciones] = useState<Aclaracion[]>([]);
+  const [aclaracionError, setAclaracionError] = useState<string | null>(null);
   const aclaracionId = useId();
 
   // Fetch existing aclaraciones when the note is signed
   useEffect(() => {
     if (!readOnly) return;
-    const fetchAclaraciones = async () => {
-      try {
-        // First find the nota_soap for this consulta
-        const { data: notaData } = await supabase
-          .from('notas_soap')
-          .select('id')
-          .eq('consulta_id', consultaId)
-          .eq('status', 'signed')
-          .maybeSingle();
-        if (!notaData) return;
-        const { data } = await supabase
-          .from('soap_aclaraciones')
-          .select('id, aclaracion_texto, creado_at')
-          .eq('nota_soap_id', notaData.id)
-          .order('creado_at', { ascending: true });
-        setAclaraciones(data || []);
-      } catch (err) {
+    fetchAclaraciones(consultaId)
+      .then(data => { setAclaraciones(data); setAclaracionError(null); })
+      .catch(err => {
         console.error('Error fetching aclaraciones:', err);
-      }
-    };
-    fetchAclaraciones();
+        setAclaracionError('No se pudieron cargar las notas aclaratorias. Cierra sesión y vuelve a entrar; si persiste, contacta a soporte.');
+      });
   }, [readOnly, consultaId]);
 
   const handleSaveAclaracion = async () => {
     if (!aclaracionText.trim() || aclaracionText.trim().length < 10) return;
     setIsSavingAclaracion(true);
+    setAclaracionError(null);
     try {
       // Get the real nota_soap_id for this consultation
-      const { data: notaData, error: notaErr } = await supabase
-        .from('notas_soap')
-        .select('id')
-        .eq('consulta_id', consultaId)
-        .eq('status', 'signed')
-        .maybeSingle();
-
-      if (notaErr || !notaData) {
-        console.error('Could not find signed nota_soap for this consultation');
-        return;
+      const notaSoapId = await getSignedNotaSoapId(consultaId);
+      if (!notaSoapId) {
+        throw new Error('No se encontró una nota SOAP firmada para esta consulta.');
       }
 
       // Generate a simple HMAC-style signature for the aclaracion (NOM-004 compliance)
@@ -336,7 +318,7 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
       const activeDoctorId = session?.user?.id || (isMock ? 'a6b12a8a-e55d-4f11-8ac1-f11181283c44' : '');
 
       const { error: insertErr } = await supabase.from('soap_aclaraciones').insert({
-        nota_soap_id: notaData.id,
+        nota_soap_id: notaSoapId,
         medico_id: activeDoctorId,
         aclaracion_texto: aclaracionText.trim(),
         firma_electronica: firma,
@@ -355,6 +337,13 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
       setTimeout(() => { setShowAclaracion(false); setAclaracionSaved(false); }, 1500);
     } catch (err) {
       console.error('Error saving aclaracion:', err);
+      // PostgrestError is a plain object in some supabase-js versions, so read .message directly
+      const message = (err as { message?: string } | null)?.message;
+      setAclaracionError(
+        message
+          ? `No se pudo guardar la nota aclaratoria: ${message}`
+          : 'No se pudo guardar la nota aclaratoria. Intenta de nuevo.'
+      );
     } finally {
       setIsSavingAclaracion(false);
     }
@@ -423,6 +412,19 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
               {ac.aclaracion_texto}
             </div>
           ))}
+
+          {aclaracionError && (
+            <div role="alert" style={{
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: 'rgba(239,68,68,0.06)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              color: '#b91c1c',
+              fontSize: '0.82rem',
+            }}>
+              ⚠️ {aclaracionError}
+            </div>
+          )}
 
           {!showAclaracion ? (
             <button
