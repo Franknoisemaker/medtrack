@@ -4,6 +4,7 @@ import { SoapFocusOverlay } from './SoapFocusOverlay';
 import { supabase } from '../../services/supabase';
 import { fetchAclaraciones } from '../../services/aclaraciones';
 import type { Aclaracion } from '../../services/aclaraciones';
+import { hasUndecryptedField, DECRYPTION_FAILED_MESSAGE } from '../../services/soapDecryption';
 
 // ---  CIE-10 Quick Dataset: Top 50 diagnoses embedded inline (<5KB) ---
 const CIE10_COMMON = [
@@ -76,6 +77,8 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
   const [cie10Query, setCie10Query] = useState('');
   const [cie10Results, setCie10Results] = useState<typeof CIE10_COMMON>([]);
   const isTablet = typeof window !== 'undefined' && window.innerWidth >= 768;
+  // Server returned ciphertext (decryption failed): never show it and never autosave over it
+  const [decryptionFailed, setDecryptionFailed] = useState(false);
 
   // Refs for textarea elements
   const textareaRefs = useRef<Partial<Record<SoapField, HTMLTextAreaElement | null>>>({});
@@ -95,7 +98,12 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
         }
 
         if (remoteNote && !remoteErr) {
-          const soapFields = {
+          const undecryptable = hasUndecryptedField(remoteNote);
+          if (undecryptable) {
+            console.error('[SoapEditor] get_decrypted_soap_note returned undecrypted content for consulta:', consultaId);
+          }
+          setDecryptionFailed(undecryptable);
+          const soapFields = undecryptable ? { subjetivo: '', objetivo: '', analisis: '', plan: '' } : {
             subjetivo: remoteNote.subjetivo || '',
             objetivo: remoteNote.objetivo || '',
             analisis: remoteNote.analisis || '',
@@ -194,7 +202,7 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
     consultaId,
     draft: fields,
     onSaveStatus: setSaveStatus,
-    disabled: readOnly, // stop timers once note is signed
+    disabled: readOnly || decryptionFailed, // stop timers once note is signed or unreadable
   });
 
   const setField = useCallback((key: SoapField, value: string) => {
@@ -337,6 +345,21 @@ export function SoapEditor({ consultaId, readOnly = false, signedData, onRequest
       setIsSavingAclaracion(false);
     }
   };
+
+  if (decryptionFailed) {
+    return (
+      <div role="alert" style={{
+        padding: '1rem 1.25rem',
+        borderRadius: '8px',
+        background: 'rgba(239,68,68,0.06)',
+        border: '1px solid rgba(239,68,68,0.25)',
+        color: '#b91c1c',
+        fontSize: '0.9rem',
+      }}>
+        ⚠️ {DECRYPTION_FAILED_MESSAGE}
+      </div>
+    );
+  }
 
   if (readOnly) {
     const displayMeta = signedData || {

@@ -144,4 +144,35 @@ describe('SoapEditor Component', () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
+
+  describe('when the server returns undecrypted (armored) content', () => {
+    const ARMORED = '-----BEGIN PGP MESSAGE-----\n\nww0EBwMC...\n-----END PGP MESSAGE-----';
+    const encryptedNote = (status: string) => ({
+      data: [{ subjetivo: ARMORED, objetivo: ARMORED, analisis: ARMORED, plan: ARMORED, nota_status: status, creado_at: '2026-10-24T10:00:00Z', medico_id: null }],
+      error: null,
+    });
+
+    it('never displays ciphertext on a signed note', async () => {
+      vi.mocked(supabase.rpc).mockResolvedValueOnce(encryptedNote('signed') as never);
+
+      render(<SoapEditor consultaId={mockConsultaId} readOnly />);
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo descifrar esta nota/i);
+      expect(screen.queryByText(/BEGIN PGP MESSAGE/)).not.toBeInTheDocument();
+    });
+
+    it('does not load ciphertext into a draft nor autosave over it', async () => {
+      vi.mocked(supabase.rpc).mockResolvedValueOnce(encryptedNote('draft') as never);
+
+      render(<SoapEditor consultaId={mockConsultaId} />);
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo descifrar esta nota/i);
+      expect(screen.queryByDisplayValue(/BEGIN PGP MESSAGE/)).not.toBeInTheDocument();
+      // Run past the autosave debounce (5s) and periodic sync; a write here would double-encrypt
+      vi.useFakeTimers();
+      await vi.advanceTimersByTimeAsync(35_000);
+      vi.useRealTimers();
+      expect(supabase.rpc).not.toHaveBeenCalledWith('save_soap_draft', expect.anything());
+    });
+  });
 });
