@@ -25,7 +25,9 @@ jobs:
   backup:
     name: Backup - Produccion
     runs-on: ubuntu-latest
-    environment: production
+    # Sin environment: production a propósito. El backup es de solo lectura y corre cada noche
+    # sin supervisión; el ambiente production exige aprobación manual y lo dejaría en espera.
+    # Los secrets que usa están a nivel de repositorio.
 
     env:
       BACKUP_TIMESTAMP: ''

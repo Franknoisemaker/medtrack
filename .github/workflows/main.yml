@@ -78,7 +78,7 @@ jobs:
     name: Supabase — Migraciones & Edge Functions
     runs-on: ubuntu-latest
     needs: ci
-    environment: production
+    environment: production    # ← requiere aprobación manual (Required reviewers) antes de tocar la BD
     defaults:
       run:
         working-directory: expediente-medico-app
@@ -132,7 +132,8 @@ jobs:
     name: Deploy → medtrack.mx
     runs-on: ubuntu-latest
     needs: [ci, supabase]      # ← bloqueado hasta CI verde y Supabase desplegado
-    environment: production    # ← requiere aprobación manual en GitHub
+    # Sin environment propio: la aprobación del job supabase cubre todo el despliegue,
+    # así cada push a main pide una sola aprobación.
 
     steps:
       - name: Checkout
